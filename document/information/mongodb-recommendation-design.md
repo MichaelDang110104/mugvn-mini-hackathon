@@ -156,7 +156,7 @@ Suggested fields:
   "eventType": "like",
   "movieId": "movie_123",
   "queryText": null,
-  "eventValue": 1,
+  "eventValue": 5,
   "metadata": {
     "source": "movie_detail"
   },
@@ -170,6 +170,7 @@ Validation rules:
 - `like`, `save`, `view`, `click`, and `rate` require `movieId`
 - `eventId` must be unique for idempotency
 - `timestamp` may be supplied by the client, but if omitted the backend must assign it during ingest
+- `rate` must use an explicit rating scale, for example `1` through `5`, and low ratings must not be treated as positive preference signals
 
 ### `user_profiles`
 
@@ -442,6 +443,7 @@ Relevant event types:
 - `click`
 - `like`
 - `save`
+- `rate`
 
 Example pipeline:
 
@@ -449,7 +451,7 @@ Example pipeline:
 db.user_events.aggregate([
   {
     $match: {
-      eventType: { $in: ["view", "click", "like", "save"] },
+      eventType: { $in: ["view", "click", "like", "save", "rate"] },
       timestamp: { $gte: ISODate("2026-05-07T00:00:00Z") }
     }
   },
@@ -471,6 +473,11 @@ db.user_events.aggregate([
           $cond: [{ $eq: ["$eventType", "like"] }, 1, 0]
         }
       },
+      rateCount: {
+        $sum: {
+          $cond: [{ $eq: ["$eventType", "rate"] }, 1, 0]
+        }
+      },
       saveCount: {
         $sum: {
           $cond: [{ $eq: ["$eventType", "save"] }, 1, 0]
@@ -485,6 +492,7 @@ db.user_events.aggregate([
           "$viewCount",
           { $multiply: [2, "$clickCount"] },
           { $multiply: [4, "$likeCount"] },
+          { $multiply: [4, "$rateCount"] },
           { $multiply: [3, "$saveCount"] }
         ]
       }
@@ -528,7 +536,7 @@ db.user_events.aggregate([
   {
     $match: {
       userId: "user_123",
-      eventType: { $in: ["like", "save", "view", "click"] }
+      eventType: { $in: ["like", "save", "view", "click", "rate"] }
     }
   },
   {
@@ -552,6 +560,7 @@ db.user_events.aggregate([
             branches: [
               { case: { $eq: ["$eventType", "like"] }, then: 5 },
               { case: { $eq: ["$eventType", "save"] }, then: 4 },
+              { case: { $eq: ["$eventType", "rate"] }, then: 4 },
               { case: { $eq: ["$eventType", "click"] }, then: 2 },
               { case: { $eq: ["$eventType", "view"] }, then: 1 }
             ],
@@ -786,6 +795,10 @@ Fallback to:
 - trending blocks
 - editorial or genre starter set
 
+### Search Response Shape Clarification
+
+Search responses should use a single top-level `items` list rather than separate primary and fallback blocks. When semantic retrieval fails or returns weak results, fallback candidates should still be returned in `items`, and the response must make that visible through top-level `mode`, `fallbackUsed`, and optional hint metadata.
+
 #### Personalization unavailable
 
 Fallback to:
@@ -810,10 +823,13 @@ Explanations must be generated from real ranking inputs.
 - `semantic_match_to_search`
 - `similar_to_recently_viewed`
 - `liked_similar_theme`
+- `similar_users_liked`
 - `popular_in_preferred_genre`
 - `trending_now`
 - `editorial_starter_pick`
 - `fallback_text_match`
+
+`similar_users_liked` is allowed only when a real collaborative candidate source is implemented and active for the current request. It must not appear in the default MVP path if collaborative support remains optional or disabled.
 
 ### Forbidden Behavior
 

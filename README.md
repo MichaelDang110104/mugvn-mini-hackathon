@@ -82,16 +82,45 @@ It tells developers:
 
 Use this document as the release gate.
 
+### `document/information/technology-stack.md`
+
+This is the canonical stack baseline.
+
+It tells developers:
+
+- which technologies are required
+- which Spring Boot modules should be used
+- how to keep dependencies minimal
+- how MongoDB and Spring AI fit the recommendation engine
+
+Use this document when setting up or reviewing implementation dependencies.
+
+### `document/information/deliverable.md`
+
+This is the canonical deliverable checklist.
+
+It tells developers:
+
+- what must be delivered for submission
+- what internal engineering outputs are required
+- what feature, technical, demo, and documentation deliverables must exist
+
+Use this document when tracking submission completeness.
+
 ## Recommended Reading Order
 
 1. `document/information/2026-05-14-movie-recommendation-platform.md`
-2. `document/information/mongodb-recommendation-design.md`
-3. `document/test-verification/verification-and-test-spec.md`
+2. `document/information/technology-stack.md`
+3. `document/information/mongodb-recommendation-design.md`
+4. `document/information/deliverable.md`
+5. `document/test-verification/verification-and-test-spec.md`
 
 This order matters because:
 
 - the implementation plan defines the project boundary
+- the technology stack defines the Spring Boot and MongoDB implementation baseline
 - the recommendation design defines how the core engine works
+- the deliverables doc defines what the team must package and prove
 - the verification spec defines how to prove the implementation is correct
 
 ## Architecture Snapshot
@@ -99,11 +128,13 @@ This order matters because:
 Current intended MVP stack:
 
 - Next.js frontend
-- Node.js + Express backend
+- Spring Boot backend
+- Spring Data MongoDB for persistence access
+- Spring AI for embedding and AI integration
 - MongoDB Atlas as the canonical application and recommendation database
 - MongoDB Vector Search for semantic retrieval
 - MongoDB Aggregation Pipeline for trending, profile derivation, and recommendation support logic
-- AWS Amplify for frontend hosting
+- AWS S3 + CloudFront or equivalent static frontend hosting
 - AWS App Runner for backend hosting
 - AWS Secrets Manager and CloudWatch for basic operational support
 
@@ -157,6 +188,8 @@ Shared response expectations for search and recommendation endpoints:
 - top-level `fallbackUsed` when fallback applies
 - each item includes `movie`, `score`, and `reasons`
 
+This is an abbreviated summary. Search-specific fields such as top-level `query` and optional `hint`, and recommendation-specific fields such as top-level `generatedAt`, are defined in the canonical implementation plan and verification spec.
+
 ## Rules That Must Not Drift
 
 - MongoDB must remain central to the recommendation path, not just present in storage.
@@ -193,22 +226,27 @@ If implementation forces a change to any of the following:
 - ranking signals
 - verification pass criteria
 
-update all 3 canonical documents together. Do not change one document and leave the others stale.
+update all relevant canonical and baseline documents together. Do not change one document and leave the others stale.
 
 ## Document Ownership Boundaries
 
 To avoid drift:
 
 - the implementation plan owns scope, milestones, fixed decisions, and canonical contracts
+- the technology stack owns the approved Spring Boot, Spring AI, MongoDB, and AWS dependency baseline
 - the recommendation design owns recommendation logic, MongoDB usage, ranking flow, and tradeoffs
+- the deliverables doc owns submission and packaging completeness
 - the verification spec owns tests, expected outputs, and sign-off criteria
 
 ## Current Retained Document Set
 
 This repository intentionally keeps only these dev-facing docs:
 
+- `README.md`
 - `document/information/2026-05-14-movie-recommendation-platform.md`
+- `document/information/technology-stack.md`
 - `document/information/mongodb-recommendation-design.md`
+- `document/information/deliverable.md`
 - `document/test-verification/verification-and-test-spec.md`
 
 This is the intended minimum useful engineering documentation set for the project.

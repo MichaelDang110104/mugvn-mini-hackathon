@@ -4,9 +4,9 @@
 
 **Goal:** Build a MongoDB-first, AWS-hosted movie recommendation platform that demonstrates semantic search, behavior-aware personalization, explainable recommendations, and a reliable end-to-end demo suitable for the MUGVN Mini Hackathon 2026.
 
-**Architecture:** Implement the product as a modular monolith with a Next.js frontend, a single backend API service, MongoDB Atlas as the operational and recommendation data platform, and AWS-managed services for hosting, secrets, logging, and static assets. The system should optimize for recommendation quality, explainability, demo reliability, and clear MongoDB usage rather than broad product scope.
+**Architecture:** Implement the product as a modular monolith with a Next.js frontend, a Spring Boot backend API, MongoDB Atlas as the operational and recommendation data platform, and AWS-managed services for hosting, secrets, logging, and static assets. The system should optimize for recommendation quality, explainability, demo reliability, and clear MongoDB usage rather than broad product scope.
 
-**Tech Stack:** Next.js, TypeScript, Node.js, MongoDB Atlas, MongoDB Vector Search, MongoDB Aggregation Pipeline, Tailwind CSS, AWS Amplify Hosting, AWS App Runner, Amazon S3, AWS Secrets Manager, Amazon CloudWatch, embedding provider such as OpenAI or sentence-transformers
+**Tech Stack:** Next.js, Spring Boot, Spring Web, Spring Data MongoDB, Spring AI, MongoDB Atlas, MongoDB Vector Search, MongoDB Aggregation Pipeline, AWS App Runner, Amazon S3, Amazon CloudFront, AWS Secrets Manager, Amazon CloudWatch
 
 ---
 
@@ -254,7 +254,7 @@ Optional work may start only after:
 - Failed query embedding must fall back to text search plus curated genre matches
 - Degraded or unavailable MongoDB Vector Search must fall back to text search plus curated trending and genre blocks
 - Sparse user history must fall back to semantic similarity plus trending within inferred interests
-- Empty primary search results must still return a fallback section rather than a dead-end screen
+- Empty primary search results must still return fallback candidates in the response `items` list rather than a dead-end screen
 
 ---
 
@@ -266,7 +266,7 @@ Optional work may start only after:
 - backend attempts to convert the query into an embedding within a strict timeout budget
 - MongoDB Vector Search finds semantically similar titles when embedding succeeds
 - if embedding fails or times out, the backend falls back to text search and curated genre matches
-- if Vector Search is degraded or unavailable, the backend returns fallback text and catalog-based recommendation blocks with a clear response mode
+- if Vector Search is degraded or unavailable, the backend returns fallback text and catalog-based candidates in the response `items` list with a clear response mode
 - the UI displays relevant results with metadata and tags
 
 ### Flow B: Behavior Learning
@@ -329,7 +329,7 @@ Use a **modular monolith**.
 - **Embedding pipeline**
   - precomputes movie embeddings from title, overview, genres, and tags
 - **AWS infrastructure**
-  - Amplify Hosting for frontend
+  - S3 + CloudFront for frontend hosting
   - App Runner for backend API
   - S3 for import assets and optional demo artifacts
   - Secrets Manager for API keys and DB credentials
@@ -348,30 +348,31 @@ The frontend remains intentionally simple and judge-friendly. The backend expose
 #### Frontend
 - Next.js
 - TypeScript
-- Tailwind CSS
 
 #### Backend
-- Node.js
-- TypeScript
-- Express
+- Java 21
+- Spring Boot
+- Spring Web
+- Spring Data MongoDB
+- Spring AI
 
 #### Database
 - MongoDB Atlas hosted in an AWS region
 
 #### AI / Embeddings
-- OpenAI embeddings API for speed
-- Alternative: sentence-transformers batch job if API cost or rate limits become an issue
+- Spring AI embedding client integration
+- minimal external model dependency configured through Spring AI provider adapters
 
 ### Fixed MVP Decisions
 
-- Backend framework: `Express`
+- Backend framework: `Spring Boot`
 - Identity model: anonymous session-backed users only
 - Primary embedding strategy: precomputed movie embeddings plus live query embeddings with strict timeout
 - Query embedding fallback: text search plus curated genre/tag fallback
 - Dataset direction: TMDB-derived movie metadata sample with 500 to 1000 titles
 
 #### Cloud Hosting
-- AWS Amplify Hosting for the Next.js frontend
+- Amazon S3 and Amazon CloudFront for the Next.js frontend
 - AWS App Runner for the backend API
 - Amazon S3 for seeded dataset artifacts, posters cache if needed, and demo assets
 - AWS Secrets Manager for credentials
@@ -380,10 +381,11 @@ The frontend remains intentionally simple and judge-friendly. The backend expose
 ### Why This Stack
 
 - fast to build
-- strong TypeScript ecosystem
+- strong fit for the original Spring Boot ecosystem preference
 - simple MongoDB Atlas integration
 - cloud-native and presentation-friendly
 - easy to deploy without custom server maintenance
+- keeps backend dependencies focused around Spring Boot, MongoDB, and Spring AI only
 
 ### Rejected Alternatives
 
@@ -400,8 +402,8 @@ The frontend remains intentionally simple and judge-friendly. The backend expose
 
 ### AWS Service Mapping
 
-- **AWS Amplify Hosting**
-  - host the Next.js frontend
+- **Amazon S3 + CloudFront**
+  - host the frontend static build
 - **AWS App Runner**
   - host the backend API container
 - **Amazon S3**
@@ -993,7 +995,7 @@ If the team slips more than 2 days behind the critical path, cut work in this or
 
 - [ ] confirm project framing
 - [ ] confirm must-have and optional features
-- [ ] choose final backend framework
+- [ ] confirm Spring Boot backend baseline
 - [ ] set up repository and environments
 - [ ] provision MongoDB Atlas in an AWS region
 - [ ] define collections and indexes
@@ -1198,7 +1200,7 @@ If the team slips more than 2 days behind the critical path, cut work in this or
 - Create: `docs/deployment.md`
 - Create: `.github/workflows/deploy.yml`
 
-- [ ] Configure Amplify Hosting for the frontend
+- [ ] Configure S3 + CloudFront hosting for the frontend
 - [ ] Configure App Runner for the backend
 - [ ] Configure Secrets Manager entries
 - [ ] Configure CloudWatch log groups and alarms
@@ -1310,7 +1312,7 @@ If the team slips more than 2 days behind the critical path, cut work in this or
 
 - [ ] configure MongoDB Atlas in the target AWS region
 - [ ] configure backend environment variables in App Runner
-- [ ] configure frontend environment variables in Amplify
+- [ ] configure frontend deployment variables for S3 and CloudFront build/publish
 - [ ] set up Secrets Manager entries
 - [ ] run data import
 - [ ] run embedding generation
@@ -1394,7 +1396,7 @@ Must include:
 ## 31. Immediate Kickoff Checklist
 
 - [ ] Freeze the project as a recommendation intelligence platform, not a streaming app
-- [ ] Confirm the backend framework is Express
+- [ ] Confirm the backend framework is Spring Boot
 - [ ] Provision MongoDB Atlas immediately
 - [ ] Finalize schema and index plan before deep implementation
 - [ ] Prepare sample dataset and embeddings early

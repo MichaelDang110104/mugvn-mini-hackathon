@@ -56,11 +56,13 @@ This specification does not cover:
 ### Core Components
 
 - Next.js frontend
-- Node.js + Express backend API
+- Spring Boot backend API
+- Spring Data MongoDB
+- Spring AI
 - MongoDB Atlas
 - MongoDB Vector Search on `movies.embedding`
 - MongoDB Aggregation Pipeline for trending, profile derivation, and reranking
-- AWS Amplify Hosting
+- Amazon S3 + CloudFront or equivalent static frontend hosting
 - AWS App Runner
 - Amazon S3 for assets and snapshot artifacts
 - AWS Secrets Manager
@@ -301,7 +303,7 @@ Expected outcome:
 
 - response status is `200`
 - primary semantic results may be empty
-- fallback block must still be present
+- fallback candidates must still be present in the returned `items` list
 - response must explain fallback through `mode` or `fallbackUsed`
 
 #### Test S6: Vector Search unavailable
@@ -708,7 +710,7 @@ Expected outcome:
 
 Expected outcome:
 
-- Amplify URL loads successfully
+- public frontend URL loads successfully
 - no missing environment variables
 
 #### Test A2: Backend deployment health
@@ -765,14 +767,14 @@ Expected outcome:
 
 ## 19. Test Commands And Expected Outcomes
 
-These commands are placeholders and must be adapted to the repo once implementation exists.
+These commands are placeholders and must be adapted to the repo once implementation exists. For the Spring Boot backend, prefer Maven or Gradle based verification entry points rather than Node-centric commands.
 
 ### API Contract Tests
 
 Run:
 
 ```bash
-npm test -- api-contract
+./mvnw test -Dtest=ApiContractTest
 ```
 
 Expected outcome:
@@ -785,7 +787,7 @@ Expected outcome:
 Run:
 
 ```bash
-npm test -- integration
+./mvnw test -Dtest=IntegrationTest
 ```
 
 Expected outcome:
@@ -799,7 +801,7 @@ Expected outcome:
 Run:
 
 ```bash
-npm test -- e2e
+./mvnw test -Dtest=EndToEndVerificationTest
 ```
 
 Expected outcome:
@@ -811,7 +813,7 @@ Expected outcome:
 Run:
 
 ```bash
-npm run verify:queries
+./mvnw test -Dtest=QueryFixtureVerificationTest
 ```
 
 Expected outcome:
@@ -823,7 +825,7 @@ Expected outcome:
 Run:
 
 ```bash
-npm run verify:demo
+./mvnw test -Dtest=DemoReadinessVerificationTest
 ```
 
 Expected outcome:
