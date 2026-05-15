@@ -137,7 +137,7 @@ The project must be:
 ## 5. Success Metrics
 
 - [ ] A first-time user receives at least 12 homepage recommendations with no empty state
-- [ ] Semantic search returns relevant results for at least 5 validated demo queries
+- [ ] Semantic search returns relevant results for at least 10 validated demo queries
 - [ ] Recommendations visibly change after 2 to 3 likes from the same session
 - [ ] Every recommended card shown in the demo displays at least 1 truthful explanation chip
 - [ ] Demo flow completes reliably in under 7 minutes, leaving buffer for narration
@@ -752,10 +752,21 @@ Response:
 
 Purpose: retrieve movie metadata and related recommendations.
 
+Query params:
+
+- `sessionId`
+- `region`
+
+Request headers:
+
+- `X-Session-Id` optional; if absent on a direct-entry detail-page request, the backend may mint a new anonymous session and return it through the `X-Session-Id` response header
+
 Response:
 
 - movie detail
 - `similarMovies` using the shared recommendation item shape
+- top-level `mode`
+- top-level `fallbackUsed`
 
 #### `POST /api/events`
 
@@ -1070,7 +1081,7 @@ If the team slips more than 2 days behind the critical path, cut work in this or
 
 ### Milestones
 
-- **M1:** Search working against seeded dataset, embeddings complete, and 5 validated demo queries pass manual review
+- **M1:** Search working against seeded dataset, embeddings complete, and 10 validated demo queries pass manual review
 - **M2:** Events for `view`, `click`, `like`, `save`, and `search` are stored, queryable by session, and protected against duplicate writes
 - **M3:** Recommendation feed changes within one refresh after 2 to 3 likes from the same session
 - **M4:** Every recommended item in the demo returns at least 1 human-readable explanation tied to a real signal
