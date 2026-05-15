@@ -2,7 +2,7 @@
 
 ## 1. Purpose
 
-This document defines the proposed minimal microservice architecture for the project.
+This document defines the revised minimal microservice architecture for the project.
 
 It is intentionally minimal. It keeps the frontend-facing API contract stable while separating the backend into a small set of services with clear responsibilities.
 
@@ -12,9 +12,10 @@ It is intentionally minimal. It keeps the frontend-facing API contract stable wh
 
 - preserve the current external API contract at the gateway boundary
 - split the backend by domain, not by every technical concern
-- keep MongoDB Atlas central to recommendation behavior
+- keep MongoDB Atlas central to recommendation behavior while using Postgres for structured operational data
 - keep the frontend deployable as a real Next.js application on EC2
 - use AWS and Cloudflare infrastructure that is realistic for a future-state evolution
+- add an explicit asynchronous derivation path for heavy or slow processing
 
 This EC2-hosted frontend is an explicit alternative-track exception to the current monolith baseline, which still documents `S3 + CloudFront` for frontend hosting.
 
@@ -34,51 +35,49 @@ This EC2-hosted frontend is an explicit alternative-track exception to the curre
                 | CDN / Edge Cache  |
                 +---------+---------+
                           |
-         +----------------+----------------+
-         |                                 |
-         v                                 v
-+----------------------+         +----------------------+
-| EC2: Next.js Frontend|         | S3 Static Assets     |
-| - pages              |         | - images             |
-| - SSR / runtime UI   |         | - build artifacts    |
-| - session handling   |         | - import files       |
-+----------+-----------+         +----------------------+
-           |
-           v
-+----------------------+
-| EC2: API Gateway/BFF |
-| - session bootstrap  |
-| - auth/session pass  |
-| - route orchestration|
-| - response shaping   |
-+----+---------+-------+
-     |         |        \
-     |         |         \
-     v         v          v
-+----------+ +--------------------+ +--------------+
-| Catalog  | | Recommendation     | | Event        |
-| Service  | | Service            | | Service      |
-+----------+ +--------------------+ +--------------+
-                    |                      |
-                    v                      v
-              +-----------+          +-----------+
-              | Profile   |          | Derivation|
-              | Service   |          | Worker    |
-              +-----------+          +-----------+
-                    \                  /
-                     \                /
-                      v              v
-                    +----------------------+
-                    |    MongoDB Atlas     |
-                    | movies               |
-                    | users                |
-                    | user_events          |
-                    | user_profiles        |
-                    | recommendation_logs  |
-                    | movie_neighbors      |
-                    | movie_trending_daily |
-                    | editorial_seed_sets  |
-                    +----------------------+
+                    v
+             +----------------------+
+             | AWS ALB              |
+             | Public Load Balancer |
+             +-----+-----------+----+
+                   |           |
+                   |           v
+                   |    +----------------------+
+                   |    | S3 Static Assets     |
+                   |    | - images             |
+                   |    | - build artifacts    |
+                   |    | - import files       |
+                   |    +----------------------+
+                   |
+                   v
+        +------------------------------+
+        | Private App Subnets          |
+        |------------------------------|
+        | EC2: Next.js Frontend        |
+        | EC2: API Gateway / BFF       |
+        | EC2: Catalog Service         |
+        | EC2: Recommendation Service  |
+        | EC2: Event Service           |
+        | EC2: Profile Service         |
+        | EC2: Embedding Service       |
+        | EC2: Derivation Worker       |
+        | RabbitMQ                     |
+        +--------------+---------------+
+                       |
+          +------------+--------------------+
+          |                                 |
+          v                                 v
+ +----------------------+         +----------------------+
+ | MongoDB Atlas        |         | Postgres             |
+ | - movies             |         | - users/accounts     |
+ | - user_events        |         | - admin/editorial    |
+ | - user_profiles      |         | - job tracking       |
+ | - recommendation_logs|         | - config/workflows   |
+ | - search_request_logs|         | - operational data   |
+ | - movie_neighbors    |         +----------------------+
+ | - movie_trending     |
+ | - editorial_seed_sets|
+ +----------------------+
 ```
 
 ---
@@ -107,9 +106,19 @@ Next.js frontend on EC2
 
 ---
 
-## 5. Service Responsibilities
+## 5. Network And Runtime Layout
 
-### 5.1 API Gateway / BFF
+- Cloudflare is the outermost public edge and DNS provider.
+- CloudFront is the CDN in front of AWS origins.
+- ALB is the explicit AWS public load balancer.
+- ALB should route traffic into private app subnets.
+- Frontend, gateway, and backend services should live in private app subnets, not be directly internet-exposed.
+- MongoDB Atlas and Postgres should be reachable only through controlled backend network paths.
+- RabbitMQ should remain private and internal-only.
+
+## 6. Service Responsibilities
+
+### 6.1 API Gateway / BFF
 
 Owns:
 
@@ -131,15 +140,21 @@ The gateway should preserve the full external API contract package unchanged, in
 
 It should be the only service directly called by the frontend.
 
-### 5.2 Catalog Service
+### 6.2 Catalog Service
 
 Owns:
 
 - movie catalog reads
 - movie detail reads
+- recommendation-facing movie projection access
 - availability-aware movie retrieval support
 
-### 5.3 Recommendation Service
+Primary data:
+
+- MongoDB for recommendation-facing movie documents with embeddings
+- Postgres optional source of truth for structured movie business metadata
+
+### 6.3 Recommendation Service
 
 Owns:
 
@@ -149,7 +164,11 @@ Owns:
 - serving mode selection support
 - explanation assembly
 
-### 5.4 Event Service
+Primary data:
+
+- MongoDB
+
+### 6.4 Event Service
 
 Owns:
 
@@ -158,7 +177,12 @@ Owns:
 - event persistence
 - noisy event coalescing rules
 
-### 5.5 Profile Service
+Primary data:
+
+- MongoDB for raw recommendation events
+- optional Postgres for operational idempotency/control-plane records if needed later
+
+### 6.5 Profile Service
 
 Owns:
 
@@ -166,7 +190,24 @@ Owns:
 - serving-time profile access
 - synchronous lightweight profile update coordination where needed for recommendation-critical refresh flows
 
-### 5.6 Derivation Worker
+Primary data:
+
+- MongoDB for derived recommendation profiles
+- Postgres optional for user/account data if the platform grows beyond anonymous sessions
+
+### 6.6 Embedding Service
+
+Owns:
+
+- embedding generation requests
+- calls to third-party embedding APIs or local Ollama-style model runtimes
+- writing completed embeddings back to MongoDB recommendation-facing movie documents
+
+Primary pattern:
+
+- asynchronous, queue-driven processing
+
+### 6.7 Derivation Worker
 
 Owns:
 
@@ -175,11 +216,30 @@ Owns:
 - collaborative neighbor generation
 - editorial seed maintenance if needed
 
+Primary pattern:
+
+- asynchronous, queue-driven processing
+
 The derivation worker must not sit on the critical synchronous path from `POST /api/events` to refreshed recommendation output.
+
+### 6.8 RabbitMQ
+
+Owns:
+
+- delivery of asynchronous jobs to workers
+- decoupling heavy CPU or slow network work from user-facing request paths
+
+Use it for:
+
+- embedding generation jobs
+- collaborative neighbor rebuild jobs
+- trending recomputation jobs
+- non-critical profile recomputation jobs
+- editorial seed refresh jobs
 
 ---
 
-## 6. Contract Boundary Strategy
+## 7. Contract Boundary Strategy
 
 ### External Boundary
 
@@ -212,7 +272,7 @@ Examples:
 
 ---
 
-## 7. Request Flow Examples
+## 8. Request Flow Examples
 
 ### 7.1 Search Flow
 
@@ -241,7 +301,8 @@ Frontend
 Frontend
   -> API Gateway
      -> Event Service validates and persists event
-     -> optional downstream trigger to profile/derivation path
+     -> optional synchronous lightweight profile refresh path
+     -> optional async queue publish to RabbitMQ for heavy derivation jobs
   <- API Gateway returns accepted/profileUpdated/rerankedUsingRecentEvents
 ```
 
@@ -256,9 +317,73 @@ Frontend
   <- API Gateway returns items + mode + fallbackUsed + generatedAt
 ```
 
+### 8.5 Embedding Generation Flow
+
+```text
+Catalog change or import event
+  -> API Gateway or internal admin path
+     -> publish embedding job to RabbitMQ
+        -> Embedding Service consumes job
+           -> calls provider via Spring AI or local Ollama-compatible runtime
+           -> writes embedding back to MongoDB movie document
+```
+
 ---
 
-## 8. Why EC2 For The Frontend
+## 9. Data Ownership Strategy
+
+### MongoDB
+
+Use MongoDB for:
+
+- recommendation-facing movie documents
+- embeddings
+- user events
+- user profiles
+- recommendation logs
+- search request logs
+- collaborative neighbors
+- trending outputs
+- editorial seed sets
+
+### Postgres
+
+Use Postgres for:
+
+- structured user and account data if accounts exist
+- admin and editorial workflow tables
+- job execution tracking
+- operational metadata and governance records
+- structured movie business metadata if a relational source of truth is required
+
+This split keeps recommendation logic fast and document-friendly in MongoDB while avoiding forcing all structured operational data into the same database.
+
+---
+
+## 10. Pattern Recommendation
+
+Use a simple pattern set:
+
+- synchronous request/response for user-facing recommendation freshness
+- asynchronous queue-based derivation for heavy or slow tasks
+- no full SAGA by default
+
+### Why Not Full SAGA
+
+- too much complexity for this platform right now
+- most user-facing recommendation flows do not need distributed business transactions
+- idempotent events plus async derivation are simpler and safer here
+
+### Recommended Patterns
+
+- request/response for search, movie detail, and homepage recommendations
+- RabbitMQ for heavy background processing
+- idempotent event handling
+- outbox/event choreography only later if the platform grows
+
+---
+
+## 11. Why EC2 For The Frontend
 
 The frontend is modeled on EC2 because this architecture assumes a real Next.js runtime rather than a purely static export.
 
@@ -278,7 +403,7 @@ S3 is still useful, but only for:
 
 ---
 
-## 9. Why This Split Is Minimal
+## 12. Why This Split Is Minimal
 
 This is intentionally not a full platform decomposition.
 
@@ -301,14 +426,53 @@ The current split is the smallest one that still gives:
 
 ---
 
-## 10. Risks And Tradeoffs
+## 13. Pain Points And Best-Practice Improvements
+
+The original minimal microservice draft had several weaknesses. This revised version addresses them explicitly.
+
+### Pain Point 1: No explicit load balancer
+
+Fix:
+
+- add AWS ALB explicitly as the public AWS load balancer
+
+### Pain Point 2: No clear network model
+
+Fix:
+
+- add VPC, public ingress, and private app-subnet assumptions
+
+### Pain Point 3: Everything in MongoDB
+
+Fix:
+
+- split recommendation-domain data into MongoDB and structured operational data into Postgres
+
+### Pain Point 4: Worker ambiguity on critical path
+
+Fix:
+
+- keep Embedding Service and Derivation Worker fully asynchronous through RabbitMQ
+- keep recommendation refresh path synchronous and lightweight
+
+### Pain Point 5: Gateway contract drift risk
+
+Fix:
+
+- preserve the full external API contract package at the gateway boundary unchanged
+
+---
+
+## 14. Risks And Tradeoffs
 
 ### Strengths
 
 - preserves the current API contract investment
 - isolates recommendation-heavy logic
 - gives a clear scaling story
-- keeps MongoDB central
+- keeps MongoDB central where it adds value
+- avoids forcing all structured operational data into MongoDB
+- gives a clear async pattern for embedding and derivation work
 
 ### Tradeoffs
 
@@ -316,10 +480,12 @@ The current split is the smallest one that still gives:
 - more network hops
 - more internal contract maintenance
 - more deployment coordination
+- more infrastructure than the App Runner monolith baseline
+- RabbitMQ introduces another moving part to operate
 
 ---
 
-## 11. Reuse Strategy
+## 15. Reuse Strategy
 
 The microservice architecture should reuse the current documentation set in these ways:
 
@@ -335,6 +501,11 @@ The microservice architecture should reuse the current documentation set in thes
 - verification scenarios from `document/test-verification/verification-and-test-spec.md`
 - stack baseline from `document/information/technology-stack.md`
 
+Important reuse exception:
+
+- the monolith baseline still places the frontend on `S3 + CloudFront`
+- this microservice track intentionally uses a real Next.js runtime on EC2 instead
+
 ### Reuse With Architecture Re-mapping
 
 - MVP scope, acceptance criteria, and fallback rules from `document/information/2026-05-14-movie-recommendation-platform.md`
@@ -347,7 +518,7 @@ The microservice architecture should reuse the current documentation set in thes
 
 ---
 
-## 12. Recommendation
+## 16. Recommendation
 
 Use this architecture as the minimal microservice alternative track.
 

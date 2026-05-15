@@ -6,10 +6,8 @@ It does not replace the current Spring Boot modular monolith documentation. It e
 
 ## What This Directory Contains
 
-- `monolith-vs-microservice-options.md`
-  - compares the current modular monolith with a minimal microservice split
 - `high-level-microservice-architecture.md`
-  - defines the proposed minimal microservice architecture on AWS and Cloudflare
+  - defines the revised minimal microservice architecture on AWS, Cloudflare, MongoDB, Postgres, and RabbitMQ
 
 ## What Can Be Reused
 
@@ -36,48 +34,9 @@ The most important reusable assets are:
 - `document/plan/collaborative-hybrid-recommendation-implementation-plan.md`
   - service responsibilities, hybrid recommendation sequencing, and collaborative gating logic can be reused conceptually, even if tasks are redistributed across services
 
-## Architecture Options
-
-### Option 1: Current Modular Monolith
-
-Use when:
-
-- the team wants the fastest implementation path
-- the hackathon delivery risk must stay low
-- recommendation quality matters more than deployment topology
-
-Main shape:
-
-- Next.js frontend
-- Spring Boot backend
-- MongoDB Atlas
-- one deployed backend application
-
-### Option 2: Minimal Microservice Split
-
-Use when:
-
-- the team wants a future-state architecture reference
-- the backend should be split by responsibility without over-fragmenting the system
-- the frontend-to-backend contract should remain stable through a gateway
-
-Main shape:
-
-- Next.js frontend on EC2
-- API Gateway on EC2
-- Catalog Service
-- Recommendation Service
-- Event Service
-- Profile Service
-- Derivation Worker
-- MongoDB Atlas
-- S3 for assets and build artifacts
-- CloudFront and Cloudflare in front
-
 ## Recommended Reading Order
 
-1. `monolith-vs-microservice-options.md`
-2. `high-level-microservice-architecture.md`
+1. `high-level-microservice-architecture.md`
 
 ## Important Rule
 
