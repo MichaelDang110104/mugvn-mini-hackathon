@@ -107,13 +107,27 @@ It tells developers:
 
 Use this document when tracking submission completeness.
 
+### `document/api-contract/`
+
+This is the API and data contract package.
+
+It tells developers:
+
+- the external API request and response contracts
+- the internal MongoDB-backed data contracts
+- the event and error contracts
+- the versioning and compatibility rules for contract-sensitive fields
+
+Use this package when implementing backend controllers, frontend integrations, MongoDB-derived structures, and verification fixtures.
+
 ## Recommended Reading Order
 
 1. `document/information/2026-05-14-movie-recommendation-platform.md`
 2. `document/information/technology-stack.md`
 3. `document/information/mongodb-recommendation-design.md`
 4. `document/information/deliverable.md`
-5. `document/test-verification/verification-and-test-spec.md`
+5. `document/api-contract/`
+6. `document/test-verification/verification-and-test-spec.md`
 
 This order matters because:
 
@@ -121,6 +135,7 @@ This order matters because:
 - the technology stack defines the Spring Boot and MongoDB implementation baseline
 - the recommendation design defines how the core engine works
 - the deliverables doc defines what the team must package and prove
+- the API contract package defines what the frontend, backend, and internal data flows must exchange
 - the verification spec defines how to prove the implementation is correct
 
 ## Architecture Snapshot
@@ -137,6 +152,108 @@ Current intended MVP stack:
 - AWS S3 + CloudFront or equivalent static frontend hosting
 - AWS App Runner for backend hosting
 - AWS Secrets Manager and CloudWatch for basic operational support
+
+## High-Level Architecture
+
+```text
++--------------------+       HTTPS        +---------------------------+
+| Next.js Frontend   | -----------------> | Spring Boot API           |
+| - Home             |                    | - SearchController        |
+| - Search           | <----------------- | - MovieController         |
+| - Movie Detail     |   JSON responses   | - EventController         |
+| - Session handling |                    | - RecommendationController|
++--------------------+                    +-------------+-------------+
+                                                       |
+                                                       |
+                                                       v
+                                      +--------------------------------------+
+                                      | MongoDB Atlas                        |
+                                      | - movies                             |
+                                      | - users                              |
+                                      | - user_events                        |
+                                      | - user_profiles                      |
+                                      | - recommendation_logs                |
+                                      | - movie_neighbors (optional)         |
+                                      | - movie_trending_daily               |
+                                      | - editorial_seed_sets                |
+                                      +----------------+---------------------+
+                                                       |
+                             +-------------------------+-------------------------+
+                             |                         |                         |
+                             v                         v                         v
+                 +---------------------+  +-------------------------+  +----------------------+
+                 | Vector Search       |  | Aggregation Pipelines   |  | Recommendation Logic |
+                 | - semantic search   |  | - trending              |  | - serving modes      |
+                 | - similar movies    |  | - user profiles         |  | - hybrid ranking     |
+                 | - query retrieval   |  | - collaborative neighbors| | - explanation rules |
+                 +---------------------+  +-------------------------+  +----------------------+
+```
+
+## Frontend Page Flow
+
+```text
+Entry
+  |
+  +--> Home Page
+  |      |
+  |      +--> Cold-start recommendations
+  |      |
+  |      +--> Personalized recommendations
+  |      |
+  |      +--> Click movie
+  |              |
+  |              v
+  |         Movie Detail Page
+  |              |
+  |              +--> View movie metadata
+  |              +--> View similar movies
+  |              +--> Like / Save / Rate movie
+  |              +--> Emit event
+  |              +--> Click recommended movie
+  |                        |
+  |                        v
+  |                   Movie Detail Page
+  |
+  +--> Search Page
+         |
+         +--> Enter natural language query
+         +--> Receive semantic or fallback-safe items
+         +--> Click movie
+         |      |
+         |      v
+         |  Movie Detail Page
+         |
+         +--> Like / Save / Rate from results or detail flow
+                |
+                v
+           Refresh recommendations on Home Page
+```
+
+## Frontend Interaction Flow
+
+```text
+User opens app
+  |
+  +--> frontend obtains or reuses sessionId
+  |
+  +--> frontend requests Home or Search
+  |
+  +--> backend returns items + mode + fallbackUsed
+  |
+  +--> frontend renders recommendation or search list
+  |
+  +--> user clicks / views / likes / saves / rates
+  |
+  +--> frontend sends POST /api/events
+  |
+  +--> backend stores event and updates or influences profile
+  |
+  +--> frontend requests GET /api/recommendations
+  |
+  +--> backend returns updated results
+  |
+  +--> frontend renders changed recommendations with truthful reasons
+```
 
 ## Canonical Serving Modes
 
@@ -236,6 +353,7 @@ To avoid drift:
 - the technology stack owns the approved Spring Boot, Spring AI, MongoDB, and AWS dependency baseline
 - the recommendation design owns recommendation logic, MongoDB usage, ranking flow, and tradeoffs
 - the deliverables doc owns submission and packaging completeness
+- the API contract package owns request, response, event, data, and compatibility contract details
 - the verification spec owns tests, expected outputs, and sign-off criteria
 
 ## Current Retained Document Set
@@ -247,6 +365,7 @@ This repository intentionally keeps only these dev-facing docs:
 - `document/information/technology-stack.md`
 - `document/information/mongodb-recommendation-design.md`
 - `document/information/deliverable.md`
+- `document/api-contract/`
 - `document/test-verification/verification-and-test-spec.md`
 
 This is the intended minimum useful engineering documentation set for the project.

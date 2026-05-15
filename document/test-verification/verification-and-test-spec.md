@@ -201,9 +201,9 @@ These are the tests that must pass before the team can claim demo readiness.
 | Area | Test | Expected Outcome |
 | --- | --- | --- |
 | Search | Semantic query returns relevant results | Top results match expected category or theme |
-| Search | Empty query | 200 response with fallback/trending block |
-| Search | No-result query | 200 response with fallback block, no blank screen |
-| Search | Vector degradation | Response falls back to text and catalog-based blocks |
+| Search | Empty query | 200 response with fallback-safe items, no blank screen |
+| Search | No-result query | 200 response with fallback-safe items, no blank screen |
+| Search | Vector degradation | Response falls back to text and catalog-based items in the same list contract |
 | Events | `search` event ingest | Event stored with `queryText` and `eventId` |
 | Events | `like` event ingest | Event stored exactly once even on retry |
 | Profile | Persona profile derivation | Profile reflects recent likes and top genres |
@@ -277,7 +277,7 @@ Expected outcome:
 
 - response status is `200`
 - no server error
-- either semantic results or a visible fallback block
+- either semantic results or visible fallback candidates in the returned `items` list
 - UI never renders an empty broken state
 
 #### Test S4: Empty query
@@ -289,7 +289,7 @@ Input:
 Expected outcome:
 
 - response status is `200`
-- `mode` is `cold_start` or `fallback_text`
+- `mode` is `cold_start`
 - response returns trending or editorial content
 - no vector query is required for success
 
@@ -389,7 +389,7 @@ Action:
 
 Expected outcome:
 
-- duplicate `view` or `click` events are either prevented or coalesced per design
+- duplicate `view` events are coalesced per design, and duplicate `click` events are either prevented or handled through strict idempotency rules
 - profile is not over-weighted by UI noise
 
 #### Test E4: Invalid schema rejected
@@ -636,7 +636,7 @@ Expected outcome:
 Expected outcome:
 
 - response `200`
-- text and catalog-based blocks returned
+- text and catalog-based fallback candidates returned in the same `items` list contract
 - logs show degraded mode clearly
 
 #### Test F3: Personalization unavailable
