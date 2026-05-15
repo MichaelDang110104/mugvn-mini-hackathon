@@ -33,6 +33,10 @@ This repository is for developers who need to:
 
 - `document/information/`
   - planning and design guidance
+- `document/api-contract/`
+  - external API, internal data, event, error, and compatibility contracts
+- `document/plan/`
+  - phased implementation plans and concurrency-oriented execution guides
 - `document/test-verification/`
   - test, verification, and release-readiness guidance
 

@@ -560,7 +560,15 @@ db.user_events.aggregate([
             branches: [
               { case: { $eq: ["$eventType", "like"] }, then: 5 },
               { case: { $eq: ["$eventType", "save"] }, then: 4 },
-              { case: { $eq: ["$eventType", "rate"] }, then: 4 },
+              {
+                case: {
+                  $and: [
+                    { $eq: ["$eventType", "rate"] },
+                    { $gte: ["$eventValue", 4] }
+                  ]
+                },
+                then: 4
+              },
               { case: { $eq: ["$eventType", "click"] }, then: 2 },
               { case: { $eq: ["$eventType", "view"] }, then: 1 }
             ],
