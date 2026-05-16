@@ -238,8 +238,9 @@ Every click, view, like, search, and save is recorded here. Nothing is ever dele
 | `eventType` | What kind of action | One of: `view`, `click`, `like`, `save`, `rate`, `search`. Likes and saves are strong signals. Views and clicks are weaker. Searches tell the system what you are looking for. |
 | `movieId` | Which movie the action was about | Points to `movies._id`. Required for everything except `search`. |
 | `queryText` | What the user typed in the search bar | Only filled in for `search` events |
-| `eventValue` | A number, like a star rating | Only used for `rate` events (e.g., 5 for 5 stars). Empty for other types. |
-| `metadata` | Extra details | Things like which page the action happened on, how long the user stayed, etc. |
+| `eventValue` | The numeric value of this action | Paired with `eventUnit` to give meaning. See the table below for what value and unit each event type uses. |
+| `eventUnit` | The unit that explains what `eventValue` means | Tells the system how to read the number: "seconds", "position", "stars", or null if not needed. |
+| `metadata` | Extra details | Things like which page the action happened on, device type, etc. |
 | `timestamp` | When this happened | Recent actions matter more than old ones |
 
 ### Rules
@@ -247,6 +248,16 @@ Every click, view, like, search, and save is recorded here. Nothing is ever dele
 - `search` events must have `queryText` and do NOT need `movieId`
 - `view`, `click`, `like`, `save`, `rate` events must have `movieId`
 - Every event must have an `eventId`
+- `eventValue` and `eventUnit` are paired together. The unit tells the system how to read the value:
+
+| Event Type | `eventValue` | `eventUnit` | Why |
+| --- | --- | --- | --- |
+| `view` | How long the user stayed (number) | `"seconds"` | A 45-second view means real engagement. A 2-second view means they bounced. |
+| `click` | Which position in the list (number) | `"position"` | Clicking position 1 means the top pick worked. Clicking position 10 means they scrolled past 9 others — a stronger signal. |
+| `like` | null | null | Like is yes or no. No number needed. |
+| `save` | null | null | Same as like — binary action. |
+| `rate` | Star rating (1 to 5) | `"stars"` | Tells the system *how much* the user liked it, not just that they liked it. |
+| `search` | null | null | The query text is already in `queryText`. No number needed. |
 
 ### Example: User Searches
 
@@ -260,6 +271,7 @@ Every click, view, like, search, and save is recorded here. Nothing is ever dele
   "movieId": null,
   "queryText": "mind bending emotional sci-fi",
   "eventValue": null,
+  "eventUnit": null,
   "metadata": { "page": "/search", "device": "desktop" },
   "timestamp": "2026-05-20T14:32:00Z"
 }
@@ -276,8 +288,9 @@ Every click, view, like, search, and save is recorded here. Nothing is ever dele
   "eventType": "view",
   "movieId": "movie_inception",
   "queryText": null,
-  "eventValue": null,
-  "metadata": { "page": "/movies/movie_inception", "durationSeconds": 45 },
+  "eventValue": 45,
+  "eventUnit": "seconds",
+  "metadata": { "page": "/movies/movie_inception" },
   "timestamp": "2026-05-20T14:33:00Z"
 }
 ```
@@ -294,6 +307,7 @@ Every click, view, like, search, and save is recorded here. Nothing is ever dele
   "movieId": "movie_inception",
   "queryText": null,
   "eventValue": null,
+  "eventUnit": null,
   "metadata": { "page": "/movies/movie_inception" },
   "timestamp": "2026-05-20T14:34:00Z"
 }
@@ -311,6 +325,7 @@ Every click, view, like, search, and save is recorded here. Nothing is ever dele
   "movieId": "movie_matrix",
   "queryText": null,
   "eventValue": null,
+  "eventUnit": null,
   "metadata": { "page": "/movies/movie_matrix" },
   "timestamp": "2026-05-20T14:38:00Z"
 }
@@ -327,8 +342,9 @@ Every click, view, like, search, and save is recorded here. Nothing is ever dele
   "eventType": "click",
   "movieId": "movie_dark_knight",
   "queryText": null,
-  "eventValue": null,
-  "metadata": { "page": "/recommendations", "position": 3 },
+  "eventValue": 3,
+  "eventUnit": "position",
+  "metadata": { "page": "/recommendations" },
   "timestamp": "2026-05-20T14:42:00Z"
 }
 ```

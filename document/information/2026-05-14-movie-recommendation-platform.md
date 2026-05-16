@@ -494,6 +494,7 @@ Suggested fields:
 - `movieId`
 - `queryText`
 - `eventValue`
+- `eventUnit`
 - `metadata`
 - `timestamp`
 
@@ -780,6 +781,7 @@ Request body:
 - `eventId`
 - `queryText`
 - `eventValue`
+- `eventUnit`
 - `metadata`
 - optional client `timestamp`
 
