@@ -13,35 +13,36 @@ import java.util.List;
 @NoArgsConstructor
 @AllArgsConstructor
 @JsonInclude(JsonInclude.Include.NON_NULL)
-public class SearchResponse {
+public class MovieDetailResponse {
 
-    private List<SearchItem> items;
+    private MovieDetail movie;
+    private List<SearchResponse.SearchItem> similarMovies;
     private String mode;
     private boolean fallbackUsed;
-    private String query;
-    private String hint;
 
     @Data
     @Builder
     @NoArgsConstructor
     @AllArgsConstructor
-    public static class SearchItem {
-        private MovieSummary movie;
-        private double score;
-        private List<Reason> reasons;
-    }
-
-    @Data
-    @Builder
-    @NoArgsConstructor
-    @AllArgsConstructor
-    public static class MovieSummary {
+    public static class MovieDetail {
         private String id;
         private String title;
-        private String posterUrl;
+        private String overview;
         private List<String> genres;
+        private String posterUrl;
         private Double ratingAvg;
         private Availability availability;
+
+        // Extended fields for detail page
+        private List<String> cast;
+        private List<String> directors;
+        private List<String> writers;
+        private List<String> languages;
+        private List<String> countries;
+        private Integer runtime;
+        private Integer year;
+        private String rated;
+        private String fullplot;
     }
 
     @Data
@@ -51,14 +52,5 @@ public class SearchResponse {
     public static class Availability {
         private boolean isAvailable;
         private String region;
-    }
-
-    @Data
-    @Builder
-    @NoArgsConstructor
-    @AllArgsConstructor
-    public static class Reason {
-        private String code;
-        private String label;
     }
 }

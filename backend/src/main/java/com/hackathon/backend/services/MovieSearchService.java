@@ -174,6 +174,10 @@ public class MovieSearchService {
                 .posterUrl(movie.getPoster())
                 .genres(movie.getGenres())
                 .ratingAvg(movie.getImdb() != null ? movie.getImdb().getRating() : null)
+                .availability(SearchResponse.Availability.builder()
+                        .isAvailable(true)
+                        .region("global")
+                        .build())
                 .build();
     }
 }
