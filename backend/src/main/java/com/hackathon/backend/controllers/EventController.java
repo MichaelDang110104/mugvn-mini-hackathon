@@ -3,35 +3,29 @@ package com.hackathon.backend.controllers;
 import com.hackathon.backend.dto.ErrorResponse;
 import com.hackathon.backend.dto.EventRequest;
 import com.hackathon.backend.dto.EventResponse;
-import com.hackathon.backend.services.EventService;
+import com.hackathon.backend.enums.EventType;
+import com.hackathon.backend.events.UserEventReceivedEvent;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.*;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
 
-/**
- * Contract-aligned event endpoint:
- * - POST /api/events
- *
- * Per external-api-contracts.md and event-and-error-contracts.md
- */
+@Slf4j
 @RestController
 @RequestMapping("/api/events")
 @RequiredArgsConstructor
-@Slf4j
 public class EventController {
 
-    private final EventService eventService;
+    private final ApplicationEventPublisher eventPublisher;
 
-    /**
-     * POST /api/events
-     * Capture recommendation-relevant user behavior signals.
-     */
     @PostMapping
     public ResponseEntity<?> postEvent(@RequestBody EventRequest request) {
-        // Basic null checks before service validation
         if (request.getSessionId() == null || request.getSessionId().isBlank()) {
             return ResponseEntity.badRequest()
                     .body(ErrorResponse.validationError("sessionId is required",
@@ -49,25 +43,18 @@ public class EventController {
         }
 
         try {
-            EventResponse response = eventService.processEvent(request);
-            return ResponseEntity.ok(response);
-
-        } catch (EventService.EventValidationException e) {
-            List<ErrorResponse.FieldError> details = e.getDetails().stream()
-                    .map(fe -> new ErrorResponse.FieldError(fe.field(), fe.reason()))
-                    .toList();
+            EventType.fromValue(request.getEventType());
+        } catch (IllegalArgumentException e) {
             return ResponseEntity.badRequest()
-                    .body(ErrorResponse.validationError(e.getMessage(), details));
-
-        } catch (EventService.EventConflictException e) {
-            return ResponseEntity.status(409)
-                    .body(ErrorResponse.validationError(e.getMessage(),
-                            List.of(new ErrorResponse.FieldError("eventId", "conflict"))));
-
-        } catch (Exception e) {
-            log.error("Event processing failed: {}", e.getMessage(), e);
-            return ResponseEntity.internalServerError()
-                    .body(ErrorResponse.internalError("unable to process event"));
+                    .body(ErrorResponse.validationError("Unknown eventType: " + request.getEventType(),
+                            List.of(new ErrorResponse.FieldError("eventType", "invalid"))));
         }
+
+        log.debug("Received event [{}] type=[{}] session=[{}]",
+                request.getEventId(), request.getEventType(), request.getSessionId());
+
+        eventPublisher.publishEvent(new UserEventReceivedEvent(this, request));
+
+        return ResponseEntity.accepted().body(new EventResponse("ack"));
     }
 }
