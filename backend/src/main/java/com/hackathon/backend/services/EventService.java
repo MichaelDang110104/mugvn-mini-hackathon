@@ -23,12 +23,10 @@ public class EventService {
     private final UserEventRepository userEventRepository;
 
     private static final Set<String> VALID_EVENT_TYPES = Set.of(
-            "search", "view", "click", "like", "save", "rate"
-    );
+            "search", "view", "click", "like", "save", "rate");
 
     private static final Set<String> REQUIRES_MOVIE_ID = Set.of(
-            "like", "save", "view", "click", "rate"
-    );
+            "like", "save", "click", "rate");
 
     /**
      * Process a single event request.
@@ -174,5 +172,6 @@ public class EventService {
         }
     }
 
-    public record FieldError(String field, String reason) {}
+    public record FieldError(String field, String reason) {
+    }
 }

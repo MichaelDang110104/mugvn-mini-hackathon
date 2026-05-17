@@ -70,4 +70,34 @@ public class EventController {
                     .body(ErrorResponse.internalError("unable to process event"));
         }
     }
+
+    /**
+     * POST /api/events/batch
+     * Accept a batch of events. Process each individually.
+     * Returns count of accepted and failed events.
+     */
+    @PostMapping("/batch")
+    public ResponseEntity<?> postEventsBatch(@RequestBody List<EventRequest> requests) {
+        int accepted = 0;
+        int failed = 0;
+
+        for (EventRequest request : requests) {
+            try {
+                if (request.getSessionId() == null || request.getEventId() == null
+                        || request.getEventType() == null) {
+                    failed++;
+                    continue;
+                }
+                eventService.processEvent(request);
+                accepted++;
+            } catch (Exception e) {
+                log.warn("Batch event failed [{}]: {}", request.getEventId(), e.getMessage());
+                failed++;
+            }
+        }
+
+        return ResponseEntity.ok(java.util.Map.of(
+                "accepted", accepted,
+                "failed", failed));
+    }
 }
