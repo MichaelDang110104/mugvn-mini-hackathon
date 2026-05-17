@@ -3,11 +3,10 @@ package com.hackathon.backend.controllers;
 import com.hackathon.backend.dto.ErrorResponse;
 import com.hackathon.backend.dto.EventRequest;
 import com.hackathon.backend.dto.EventResponse;
-import com.hackathon.backend.enums.EventType;
-import com.hackathon.backend.events.UserEventReceivedEvent;
+import com.hackathon.backend.services.EventService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.context.ApplicationEventPublisher;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -15,6 +14,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
+import java.util.stream.Collectors;
 
 @Slf4j
 @RestController
@@ -22,7 +22,7 @@ import java.util.List;
 @RequiredArgsConstructor
 public class EventController {
 
-    private final ApplicationEventPublisher eventPublisher;
+    private final EventService eventService;
 
     @PostMapping
     public ResponseEntity<?> postEvent(@RequestBody EventRequest request) {
@@ -43,19 +43,18 @@ public class EventController {
         }
 
         try {
-            EventType.fromValue(request.getEventType());
-        } catch (IllegalArgumentException e) {
+            EventResponse response = eventService.processEvent(request);
+            log.debug("Accepted event [{}] type=[{}] session=[{}]",
+                    request.getEventId(), request.getEventType(), request.getSessionId());
+            return ResponseEntity.status(HttpStatus.ACCEPTED).body(response);
+        } catch (EventService.EventValidationException e) {
             return ResponseEntity.badRequest()
-                    .body(ErrorResponse.validationError("Unknown eventType: " + request.getEventType(),
-                            List.of(new ErrorResponse.FieldError("eventType", "invalid"))));
+                    .body(ErrorResponse.validationError(e.getMessage(), toErrorFields(e.getDetails())));
+        } catch (EventService.EventConflictException e) {
+            return ResponseEntity.status(HttpStatus.CONFLICT)
+                    .body(ErrorResponse.validationError(e.getMessage(),
+                            List.of(new ErrorResponse.FieldError("eventId", "conflict"))));
         }
-
-        log.debug("Received event [{}] type=[{}] session=[{}]",
-                request.getEventId(), request.getEventType(), request.getSessionId());
-
-        eventPublisher.publishEvent(new UserEventReceivedEvent(this, request));
-
-        return ResponseEntity.accepted().body(new EventResponse("ack"));
     }
 
     /**
@@ -77,6 +76,9 @@ public class EventController {
                 }
                 eventService.processEvent(request);
                 accepted++;
+            } catch (EventService.EventValidationException | EventService.EventConflictException e) {
+                log.warn("Batch event failed [{}]: {}", request.getEventId(), e.getMessage());
+                failed++;
             } catch (Exception e) {
                 log.warn("Batch event failed [{}]: {}", request.getEventId(), e.getMessage());
                 failed++;
@@ -86,5 +88,11 @@ public class EventController {
         return ResponseEntity.ok(java.util.Map.of(
                 "accepted", accepted,
                 "failed", failed));
+    }
+
+    private List<ErrorResponse.FieldError> toErrorFields(List<EventService.FieldError> details) {
+        return details.stream()
+                .map(detail -> new ErrorResponse.FieldError(detail.field(), detail.reason()))
+                .collect(Collectors.toList());
     }
 }

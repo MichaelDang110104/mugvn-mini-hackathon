@@ -16,11 +16,15 @@ import org.springframework.stereotype.Service;
 
 import java.util.Date;
 import java.util.List;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 @Service
 @RequiredArgsConstructor
 @Slf4j
 public class VectorSearchService {
+
+        private static final Pattern LEADING_INTEGER = Pattern.compile("^[\\s]*([+-]?\\d+)");
 
         private final MongoTemplate mongoTemplate;
 
@@ -116,7 +120,7 @@ public class VectorSearchService {
                                 .languages(doc.getList("languages", String.class))
                                 .countries(doc.getList("countries", String.class))
                                 .runtime(doc.getInteger("runtime"))
-                                .year(doc.getInteger("year"))
+                                .year(readInteger(doc, "year"))
                                 .rated(doc.getString("rated"))
                                 .type(doc.getString("type"))
                                 .poster(doc.getString("poster"))
@@ -136,6 +140,27 @@ public class VectorSearchService {
                                 .movie(movie)
                                 .vectorSearchScore(score)
                                 .build();
+        }
+
+        private Integer readInteger(Document doc, String fieldName) {
+                Object value = doc.get(fieldName);
+                if (value instanceof Integer integerValue) {
+                        return integerValue;
+                }
+                if (value instanceof Number numberValue) {
+                        return numberValue.intValue();
+                }
+                if (value instanceof String stringValue) {
+                        Matcher matcher = LEADING_INTEGER.matcher(stringValue);
+                        if (matcher.find()) {
+                                try {
+                                        return Integer.valueOf(matcher.group(1));
+                                } catch (NumberFormatException ignored) {
+                                        return null;
+                                }
+                        }
+                }
+                return null;
         }
 
         private Movie.Imdb mapImdb(Document doc) {

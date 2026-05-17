@@ -3,6 +3,7 @@ package com.hackathon.backend.services;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.embedding.EmbeddingModel;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
@@ -13,9 +14,14 @@ import java.util.List;
 @Slf4j
 public class EmbeddingService {
 
-    private final EmbeddingModel embeddingModel;
+    private final ObjectProvider<EmbeddingModel> embeddingModelProvider;
 
     public List<Double> embed(String text) {
+        EmbeddingModel embeddingModel = embeddingModelProvider.getIfAvailable();
+        if (embeddingModel == null) {
+            log.warn("Embedding model unavailable, returning empty embedding");
+            return List.of();
+        }
         try {
             float[] embedding = embeddingModel.embed(text);
             return toDoubleList(embedding);
@@ -26,6 +32,11 @@ public class EmbeddingService {
     }
 
     public List<List<Double>> embedBatch(List<String> texts) {
+        EmbeddingModel embeddingModel = embeddingModelProvider.getIfAvailable();
+        if (embeddingModel == null) {
+            log.warn("Embedding model unavailable, returning empty embedding batch");
+            return List.of();
+        }
         try {
             List<float[]> embeddings = embeddingModel.embed(texts);
             return embeddings.stream()

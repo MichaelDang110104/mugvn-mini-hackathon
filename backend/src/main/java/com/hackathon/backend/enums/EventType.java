@@ -12,7 +12,7 @@ public enum EventType {
     LIKE("like", 4),
     SAVE("save", 4),
     WATCH_START("watch_start", 5),
-    RATING("rating", 5);
+    RATING("rate", 5);
 
     private final String value;
     private final int weight;
@@ -32,6 +32,9 @@ public enum EventType {
     }
 
     public static EventType fromValue(String value) {
+        if ("rating".equals(value)) {
+            return RATING;
+        }
         return Arrays.stream(values())
                 .filter(t -> t.value.equals(value))
                 .findFirst()
