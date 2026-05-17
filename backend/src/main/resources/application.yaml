@@ -7,12 +7,11 @@ spring:
       embedding:
         options:
           model: text-embedding-ada-002
+    vectorstore:
+      mongodb:
+        collection-name: embedded_movies
+        index-name: vector_index
+        path-name: plot_embedding
+        initialize-schema: false
   mongodb:
     uri: mongodb+srv://michaeldang0104_db_user:m9tiK5rbFOYbMuGN@mongodb-hackathon.yxj8jm9.mongodb.net/sample_mflix?appName=MongoDB-Hackathon
-
-# Custom vector search configuration
-app:
-  vector-search:
-    index-name: vector_index
-    embedding-field: plot_embedding
-    default-num-candidates: 200

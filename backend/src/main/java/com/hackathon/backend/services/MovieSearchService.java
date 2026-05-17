@@ -24,7 +24,6 @@ import java.util.List;
 @Slf4j
 public class MovieSearchService {
 
-    private final EmbeddingService embeddingService;
     private final VectorSearchService vectorSearchService;
     private final MongoTemplate mongoTemplate;
 
@@ -37,15 +36,7 @@ public class MovieSearchService {
             return buildColdStartResponse(effectiveLimit);
         }
 
-        List<Double> queryEmbedding = embeddingService.embed(queryText);
-
-        if (queryEmbedding.isEmpty()) {
-            log.warn("Embedding failed for query [{}], falling back to text search", queryText);
-            return buildTextFallbackResponse(queryText, effectiveLimit);
-        }
-
-        List<VectorSearchResult> results = vectorSearchService.searchByQueryVector(
-                queryEmbedding, effectiveLimit);
+        List<VectorSearchResult> results = vectorSearchService.searchByQueryText(queryText, effectiveLimit);
 
         if (results.isEmpty()) {
             log.warn("Vector search returned empty for query [{}], falling back to text search", queryText);
@@ -67,16 +58,16 @@ public class MovieSearchService {
 
     public List<SearchItem> findSimilarMovies(String movieId, int limit) {
         Query query = new Query(Criteria.where("_id").is(new ObjectId(movieId)));
-        query.fields().include("plot_embedding");
+        query.fields().include("plot");
         EmbeddedMovie movie = mongoTemplate.findOne(query, EmbeddedMovie.class);
 
-        if (movie == null || movie.getPlotEmbedding() == null || movie.getPlotEmbedding().isEmpty()) {
-            log.warn("No embedding found for movie [{}]", movieId);
+        if (movie == null || movie.getPlot() == null || movie.getPlot().isBlank()) {
+            log.warn("No plot found for movie [{}]", movieId);
             return List.of();
         }
 
         List<VectorSearchResult> results = vectorSearchService.findSimilarMovies(
-                movie.getPlotEmbedding(), movieId, limit);
+                movie.getPlot(), movieId, limit);
 
         return results.stream()
                 .map(r -> mapToSearchItem(r, "similar_to_recently_viewed",
@@ -156,7 +147,7 @@ public class MovieSearchService {
     }
 
     private SearchItem mapToSearchItem(VectorSearchResult result,
-                                        String reasonCode, String reasonLabel) {
+                                       String reasonCode, String reasonLabel) {
         return SearchItem.builder()
                 .movie(toMovieSummary(result.getMovie()))
                 .score(result.getVectorSearchScore())
