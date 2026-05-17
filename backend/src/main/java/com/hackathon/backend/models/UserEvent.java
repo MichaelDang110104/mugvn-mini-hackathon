@@ -1,5 +1,6 @@
 package com.hackathon.backend.models;
 
+import com.hackathon.backend.enums.EventType;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -28,7 +29,7 @@ public class UserEvent {
 
     private String userId;
     private String sessionId;
-    private String eventType;
+    private EventType eventType;
     private String movieId;
     private String queryText;
     private Integer eventValue;

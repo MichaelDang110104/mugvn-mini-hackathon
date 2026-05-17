@@ -1,5 +1,6 @@
 package com.hackathon.backend.repositories;
 
+import com.hackathon.backend.enums.EventType;
 import com.hackathon.backend.models.UserEvent;
 import org.springframework.data.mongodb.repository.MongoRepository;
 
@@ -12,5 +13,5 @@ public interface UserEventRepository extends MongoRepository<UserEvent, String> 
 
     List<UserEvent> findBySessionIdOrderByTimestampDesc(String sessionId);
 
-    List<UserEvent> findBySessionIdAndEventTypeOrderByTimestampDesc(String sessionId, String eventType);
+    List<UserEvent> findBySessionIdAndEventTypeOrderByTimestampDesc(String sessionId, EventType eventType);
 }

@@ -1,5 +1,6 @@
 package com.hackathon.backend.services;
 
+import com.hackathon.backend.enums.EventType;
 import com.hackathon.backend.dto.RecommendationResponse;
 import com.hackathon.backend.dto.SearchResponse;
 import com.hackathon.backend.dto.SearchResponse.MovieSummary;
@@ -148,11 +149,11 @@ public class RecommendationService {
     }
 
     private boolean isPositiveEvent(UserEvent event) {
-        String type = event.getEventType();
-        if ("like".equals(type) || "save".equals(type)) {
+        EventType type = event.getEventType();
+        if (type == EventType.LIKE || type == EventType.SAVE) {
             return true;
         }
-        if ("rate".equals(type) && event.getEventValue() != null) {
+        if (type == EventType.RATING && event.getEventValue() != null) {
             return event.getEventValue() >= 4;
         }
         return false;
