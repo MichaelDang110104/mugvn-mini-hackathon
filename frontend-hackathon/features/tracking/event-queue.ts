@@ -91,7 +91,7 @@ function shouldDedupeImpression(eventType: string, screen: string, component: st
  * Check if submit action should be prevented (double-submit)
  */
 function shouldPreventDoubleSubmit(eventType: string, movieId?: string): boolean {
-  if (!['like', 'save', 'rating', 'watch_start'].includes(eventType)) return false
+  if (!['like', 'save', 'rate', 'view'].includes(eventType)) return false
 
   const key = `${eventType}_${movieId}`
   const lastSubmit = globalState.recentSubmitMap[key] || 0
@@ -145,7 +145,7 @@ export function queueEvent(rawEvent: RawEvent, eventSessionId: string): void {
   console.log('[v0] Event queued:', normalized.eventType, normalized.metadata.movieId)
 
   // Immediate flush for high-value events
-  if (['like', 'save', 'rating', 'watch_start'].includes(normalized.eventType)) {
+  if (['like', 'save', 'rate'].includes(normalized.eventType)) {
     flushQueue(eventSessionId)
   }
 }
@@ -228,26 +228,31 @@ function setupAutoFlush(): void {
 function setupPageUnload(): void {
   if (typeof window === 'undefined') return
 
+  const apiBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8080'
+
   window.addEventListener('beforeunload', () => {
     if (globalState.queue.length > 0) {
-      // Use sendBeacon for best-effort delivery
-      const data = globalState.queue.map(e => ({
-        sessionId: e.sessionId,
-        eventId: e.eventId,
-        eventType: e.eventType,
-        screen: e.screen,
-        component: e.component,
-        itemType: e.itemType,
-        eventValue: e.eventValue,
-        eventUnit: e.eventUnit,
-        metadata: e.metadata,
-        timestamp: e.timestamp,
-      }))
+      // Use sendBeacon for best-effort delivery — send each event individually
+      // since the backend only has POST /api/events (single event endpoint)
+      for (const e of globalState.queue) {
+        const movieId = e.metadata?.movieId as string | undefined
+        const body = JSON.stringify({
+          sessionId: e.sessionId,
+          eventId: e.eventId,
+          eventType: e.eventType,
+          movieId: movieId || null,
+          queryText: e.eventType === 'search' ? e.eventValue : null,
+          eventValue: e.eventType === 'rate' && e.eventValue ? parseInt(e.eventValue, 10) : null,
+          metadata: { source: e.screen, component: e.component, ...e.metadata },
+          timestamp: e.timestamp,
+        })
 
-      try {
-        navigator.sendBeacon('/api/events/batch', JSON.stringify(data))
-      } catch (error) {
-        console.warn('[v0] sendBeacon failed:', error)
+        try {
+          const blob = new Blob([body], { type: 'application/json' })
+          navigator.sendBeacon(`${apiBaseUrl}/api/events`, blob)
+        } catch (error) {
+          console.warn('[api] sendBeacon failed:', error)
+        }
       }
     }
   })
