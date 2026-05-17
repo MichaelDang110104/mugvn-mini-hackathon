@@ -1,3 +1,19 @@
 spring:
   application:
     name: backend
+  data:
+    mongodb:
+      uri: mongodb+srv://michaeldang0104_db_user:m9tiK5rbFOYbMuGN@mongodb-hackathon.yxj8jm9.mongodb.net/sample_mflix?appName=MongoDB-Hackathon
+  ai:
+    openai:
+      api-key: ${OPENAI_API_KEY}
+      embedding:
+        options:
+          model: text-embedding-3-small
+
+# Custom vector search configuration
+app:
+  vector-search:
+    index-name: vector_index
+    embedding-field: plot_embedding
+    default-num-candidates: 200
