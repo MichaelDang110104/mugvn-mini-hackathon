@@ -3,13 +3,12 @@ package com.hackathon.backend.services;
 import com.hackathon.backend.dto.EventRequest;
 import com.hackathon.backend.enums.EventType;
 import com.hackathon.backend.events.UserEventReceivedEvent;
-import com.hackathon.backend.models.Session;
+import com.hackathon.backend.models.AppUser;
 import com.hackathon.backend.models.UserEvent;
-import com.hackathon.backend.repositories.SessionRepository;
+import com.hackathon.backend.repositories.AppUserRepository;
 import com.hackathon.backend.repositories.UserEventRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.bson.types.ObjectId;
 import org.springframework.context.event.EventListener;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.scheduling.annotation.Async;
@@ -24,7 +23,7 @@ import java.util.Optional;
 public class EventProcessingListener {
 
     private final UserEventRepository userEventRepository;
-    private final SessionRepository sessionRepository;
+    private final AppUserRepository appUserRepository;
 
     @Async("eventExecutor")
     @EventListener
@@ -38,8 +37,8 @@ public class EventProcessingListener {
 
         String userId = null;
         try {
-            Optional<Session> session = sessionRepository.findById(new ObjectId(request.getSessionId()));
-            userId = session.map(Session::getUserId).orElse(null);
+            Optional<AppUser> appUser = appUserRepository.findBySessionId(request.getSessionId());
+            userId = appUser.map(AppUser::getId).orElse(null);
         } catch (Exception e) {
             log.warn("Could not resolve userId for session [{}]: {}", request.getSessionId(), e.getMessage());
         }

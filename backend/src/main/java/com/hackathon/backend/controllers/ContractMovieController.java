@@ -44,7 +44,6 @@ public class ContractMovieController {
             @RequestParam(required = false) String q,
             @RequestParam(required = false) Integer limit,
             @RequestParam(required = false) String sessionId,
-            @RequestParam(required = false) String region,
             @RequestHeader(value = "X-Session-Id", required = false) String headerSessionId) {
 
         try {
@@ -78,7 +77,6 @@ public class ContractMovieController {
     public ResponseEntity<?> getMovieDetail(
             @PathVariable String movieId,
             @RequestParam(required = false) String sessionId,
-            @RequestParam(required = false) String region,
             @RequestHeader(value = "X-Session-Id", required = false) String headerSessionId) {
 
         try {

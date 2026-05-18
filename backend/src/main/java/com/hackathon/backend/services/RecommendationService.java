@@ -91,7 +91,7 @@ public class RecommendationService {
         }
 
         var results = vectorSearchService.findSimilarMovies(
-                seedMovie.getPlotEmbedding(), seedMovieId, limit + 5);
+                seedMovie.getFullplot(), seedMovieId, limit + 5);
 
         // Deduplicate and exclude already-interacted movies
         List<SearchItem> items = results.stream()
