@@ -7,8 +7,8 @@ import com.hackathon.backend.repositories.EmbeddedMovieRepository;
 import com.hackathon.backend.repositories.UserEventRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.bson.Document;
 import org.bson.types.ObjectId;
-import org.springframework.data.domain.PageRequest;
 import org.springframework.data.mongodb.core.MongoTemplate;
 import org.springframework.data.mongodb.core.query.Criteria;
 import org.springframework.data.mongodb.core.query.Query;
@@ -17,9 +17,7 @@ import org.springframework.stereotype.Service;
 
 import java.time.Instant;
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 
 @Service
 @RequiredArgsConstructor
@@ -30,169 +28,119 @@ public class UserEmbeddingService {
     private final EmbeddedMovieRepository embeddedMovieRepository;
     private final MongoTemplate mongoTemplate;
 
-    private static final String USER_PROFILES_COLLECTION = "user_profiles";
-    private static final int USER_PROFILE_EVENT_LIMIT = 100;
-    private static final double USER_PROFILE_LAMBDA = Math.log(2) / 21.0;
+    private static final int MAX_EVENTS = 100;
+    private static final double HALF_LIFE_DAYS = 21.0;
+    private static final double LAMBDA = Math.log(2) / HALF_LIFE_DAYS;
 
-    public List<Double> createUserEmbedding(String userId) {
-        if (userId == null || userId.isBlank()) {
-            log.warn("createUserEmbedding called with null or blank userId");
-            return List.of();
+    /**
+     * Computes a user's profile embedding from their event history.
+     * Uses weighted average of movie embeddings with exponential time decay.
+     *
+     * TODO: đợi micheal làm xong phần user rồi write vào DB sau, chưa verify tính đúng sai
+     *
+     * @param username the username (MflixUser.name) used to identify the user in this hackathon
+     */
+    public void computeUserEmbedding(String username) {
+        if (username == null || username.isBlank()) {
+            log.debug("computeUserEmbedding skipped: no username");
+            return;
         }
 
-        List<UserEvent> events = userEventRepository.findByUserIdOrderByTimestampDesc(
-                userId, PageRequest.of(0, USER_PROFILE_EVENT_LIMIT));
-
+        List<UserEvent> events = userEventRepository.findByUserIdOrderByTimestampDesc(username);
         if (events.isEmpty()) {
-            log.info("No events found for user [{}], skipping embedding computation", userId);
-            return List.of();
+            log.debug("computeUserEmbedding skipped: no events for user [{}]", username);
+            return;
         }
 
-        Map<String, List<Double>> movieEmbeddings = loadMovieEmbeddings(events);
-        if (movieEmbeddings.isEmpty()) {
-            log.info("No movie embeddings found for user [{}]'s events", userId);
-            return List.of();
-        }
-
-        List<Double> userEmbedding = computeWeightedAverage(events, movieEmbeddings);
-        if (userEmbedding.isEmpty()) {
-            log.warn("Weighted average computation returned empty for user [{}]", userId);
-            return List.of();
-        }
-
-        saveUserProfile(userId, userEmbedding, events);
-
-        log.info("Created user embedding for user [{}] (dim={}, events={})",
-                userId, userEmbedding.size(), events.size());
-
-        return userEmbedding;
-    }
-
-    private Map<String, List<Double>> loadMovieEmbeddings(List<UserEvent> events) {
-        List<ObjectId> movieIds = events.stream()
-                .map(UserEvent::getMovieId)
-                .filter(id -> id != null && !id.isBlank())
-                .map(ObjectId::new)
-                .distinct()
+        List<UserEvent> cappedEvents = events.stream()
+                .limit(MAX_EVENTS)
                 .toList();
 
-        if (movieIds.isEmpty()) {
-            return Map.of();
-        }
-
-        List<EmbeddedMovie> movies = embeddedMovieRepository.findAllById(movieIds);
-
-        Map<String, List<Double>> embeddingMap = new HashMap<>();
-        for (EmbeddedMovie movie : movies) {
-            if (movie.getPlotEmbedding() != null && !movie.getPlotEmbedding().isEmpty()) {
-                embeddingMap.put(movie.getId().toHexString(), movie.getPlotEmbedding());
-            }
-        }
-
-        return embeddingMap;
-    }
-
-    private List<Double> computeWeightedAverage(
-            List<UserEvent> events,
-            Map<String, List<Double>> movieEmbeddings) {
+        List<Double> weightedSum = null;
+        double totalWeight = 0.0;
+        int moviesUsed = 0;
 
         Instant now = Instant.now();
-        double[] weightedSum = null;
-        double totalWeight = 0.0;
-        int embeddingDim = 0;
 
-        for (UserEvent event : events) {
+        for (UserEvent event : cappedEvents) {
             if (event.getMovieId() == null || event.getMovieId().isBlank()) {
                 continue;
             }
 
-            List<Double> movieEmbedding = movieEmbeddings.get(event.getMovieId());
-            if (movieEmbedding == null || movieEmbedding.isEmpty()) {
+            double eventWeight = getEmbeddingWeight(event);
+            if (eventWeight <= 0) {
                 continue;
             }
 
-            if (embeddingDim == 0) {
-                embeddingDim = movieEmbedding.size();
-                weightedSum = new double[embeddingDim];
+            double decay = computeDecay(event.getTimestamp(), now);
+            double effectiveWeight = eventWeight * decay;
+
+            EmbeddedMovie movie = embeddedMovieRepository.findById(
+                    new ObjectId(event.getMovieId())).orElse(null);
+            if (movie == null || movie.getPlotEmbedding() == null || movie.getPlotEmbedding().isEmpty()) {
+                continue;
             }
 
-            double baseWeight = getEventWeight(event);
-            double decay = computeDecay(event.getTimestamp(), now);
-            double effectiveWeight = baseWeight * decay;
+            List<Double> embedding = movie.getPlotEmbedding();
 
-            for (int i = 0; i < embeddingDim; i++) {
-                weightedSum[i] += effectiveWeight * movieEmbedding.get(i);
+            if (weightedSum == null) {
+                weightedSum = new ArrayList<>(embedding.size());
+                for (double val : embedding) {
+                    weightedSum.add(val * effectiveWeight);
+                }
+            } else {
+                for (int i = 0; i < embedding.size(); i++) {
+                    weightedSum.set(i, weightedSum.get(i) + embedding.get(i) * effectiveWeight);
+                }
             }
 
             totalWeight += effectiveWeight;
+            moviesUsed++;
         }
 
-        if (weightedSum == null || totalWeight == 0.0) {
-            return List.of();
+        if (weightedSum == null || totalWeight == 0) {
+            log.debug("computeUserEmbedding skipped: no usable movie embeddings for user [{}]", username);
+            return;
         }
 
-        List<Double> result = new ArrayList<>(embeddingDim);
-        for (int i = 0; i < embeddingDim; i++) {
-            result.add(weightedSum[i] / totalWeight);
+        List<Double> userEmbedding = new ArrayList<>(weightedSum.size());
+        for (double val : weightedSum) {
+            userEmbedding.add(val / totalWeight);
         }
 
-        return result;
+        saveUserProfile(username, userEmbedding);
+
+        log.info("Computed user embedding for [{}]: moviesUsed={}, totalWeight={}", username, moviesUsed, totalWeight);
     }
 
-    private double getEventWeight(UserEvent event) {
-        EventType eventType = event.getEventType();
-        if (eventType == null) {
-            return 0.0;
+    private double getEmbeddingWeight(UserEvent event) {
+        EventType type = event.getEventType();
+
+        if (type == EventType.RATING) {
+            return (event.getEventValue() != null && event.getEventValue() >= 4) ? type.getWeight() : 0.0;
         }
 
-        double baseWeight = eventType.getWeight() / 10.0;
-
-        if (eventType == EventType.RATING && event.getEventValue() != null) {
-            if (event.getEventValue() < 4) {
-                return 0.0;
-            }
-        }
-
-        return baseWeight;
+        return type.getWeight();
     }
 
     private double computeDecay(Instant eventTimestamp, Instant now) {
         if (eventTimestamp == null) {
             return 1.0;
         }
-
         double secondsSinceEvent = (double) (now.getEpochSecond() - eventTimestamp.getEpochSecond());
-        double daysSinceEvent = secondsSinceEvent / (24.0 * 60.0 * 60.0);
-
-        return Math.exp(-USER_PROFILE_LAMBDA * daysSinceEvent);
+        double daysSinceEvent = secondsSinceEvent / 86400.0;
+        return Math.exp(-LAMBDA * daysSinceEvent);
     }
 
-    private void saveUserProfile(String userId, List<Double> embedding, List<UserEvent> events) {
-        Query query = new Query(Criteria.where("userId").is(userId));
-
-        List<String> recentMovieIds = events.stream()
-                .map(UserEvent::getMovieId)
-                .filter(id -> id != null && !id.isBlank())
-                .distinct()
-                .limit(20)
-                .toList();
-
-        List<String> likedMovieIds = events.stream()
-                .filter(e -> e.getEventType() == EventType.LIKE
-                        || e.getEventType() == EventType.SAVE)
-                .map(UserEvent::getMovieId)
-                .filter(id -> id != null && !id.isBlank())
-                .distinct()
-                .toList();
-
-        Update update = new Update()
-                .set("userId", userId)
-                .set("profileEmbedding", embedding)
-                .set("recentMovieIds", recentMovieIds)
-                .set("likedMovieIds", likedMovieIds)
-                .set("lastComputedAt", Instant.now())
-                .set("eventCount", events.size());
-
-        mongoTemplate.upsert(query, update, USER_PROFILES_COLLECTION);
+    private void saveUserProfile(String username, List<Double> embedding) {
+        mongoTemplate.upsert(
+                Query.query(Criteria.where("_id").is(username)),
+                new Update()
+                        .set("username", username)
+                        .set("profileEmbedding", embedding)
+                        .set("lastComputedAt", Instant.now().toString()),
+                Document.class,
+                "user_profiles"
+        );
     }
 }

@@ -15,5 +15,5 @@ public interface UserEventRepository extends MongoRepository<UserEvent, String> 
 
     List<UserEvent> findBySessionIdAndEventTypeOrderByTimestampDesc(String sessionId, EventType eventType);
 
-    List<UserEvent> findByUserIdOrderByTimestampDesc(String userId, org.springframework.data.domain.Pageable pageable);
+    List<UserEvent> findByUserIdOrderByTimestampDesc(String userId);
 }
