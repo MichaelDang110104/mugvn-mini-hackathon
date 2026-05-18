@@ -22,6 +22,8 @@ public class EventRequest {
     @NotBlank(message = "sessionId is required")
     private String sessionId;
 
+    private String userId;
+
     @NotBlank(message = "eventId is required")
     private String eventId;
 

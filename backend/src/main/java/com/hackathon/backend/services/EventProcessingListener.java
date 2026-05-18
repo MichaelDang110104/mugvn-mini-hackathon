@@ -6,6 +6,7 @@ import com.hackathon.backend.events.UserEventReceivedEvent;
 import com.hackathon.backend.models.AppUser;
 import com.hackathon.backend.models.UserEvent;
 import com.hackathon.backend.repositories.AppUserRepository;
+import com.hackathon.backend.repositories.MflixUserRepository;
 import com.hackathon.backend.repositories.UserEventRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -24,6 +25,7 @@ public class EventProcessingListener {
 
     private final UserEventRepository userEventRepository;
     private final AppUserRepository appUserRepository;
+    private final MflixUserRepository mflixUserRepository;
 
     @Async("eventExecutor")
     @EventListener
@@ -36,11 +38,18 @@ public class EventProcessingListener {
                 : Instant.now();
 
         String userId = null;
-        try {
-            Optional<AppUser> appUser = appUserRepository.findBySessionId(request.getSessionId());
-            userId = appUser.map(AppUser::getId).orElse(null);
-        } catch (Exception e) {
-            log.warn("Could not resolve userId for session [{}]: {}", request.getSessionId(), e.getMessage());
+        if (request.getUserId() != null) {
+            // Resolve actual user ID from the email passed via Spring Security context
+            mflixUserRepository.findByEmail(request.getUserId())
+                    .ifPresent(u -> request.setUserId(u.getId().toHexString()));
+            userId = request.getUserId();
+        } else {
+            try {
+                Optional<AppUser> appUser = appUserRepository.findBySessionId(request.getSessionId());
+                userId = appUser.map(AppUser::getId).orElse(null);
+            } catch (Exception e) {
+                log.warn("Could not resolve userId for session [{}]: {}", request.getSessionId(), e.getMessage());
+            }
         }
 
         UserEvent userEvent = UserEvent.builder()

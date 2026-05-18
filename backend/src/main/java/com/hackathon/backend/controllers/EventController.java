@@ -9,6 +9,9 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -48,6 +51,18 @@ public class EventController {
             return ResponseEntity.badRequest()
                     .body(ErrorResponse.validationError("Unknown eventType: " + request.getEventType(),
                             List.of(new ErrorResponse.FieldError("eventType", "invalid"))));
+        }
+
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        if (auth != null && auth.getPrincipal() instanceof UserDetails userDetails) {
+            // Because we don't have direct access to ObjectId here, and JWT might hold it in claims.
+            // But we stored email in userDetails.getUsername(). 
+            // Better to let JwtAuthenticationFilter or EventProcessingListener resolve it.
+            // Actually, JwtAuthenticationFilter sets UserDetails.
+            // If the user wants real userId, we can set it to email or fetch it.
+            // We can just rely on the token subject (email) as a proxy, or lookup.
+            // For now, pass the email down and let listener handle it, or lookup here.
+            request.setUserId(userDetails.getUsername());
         }
 
         log.debug("Received event [{}] type=[{}] session=[{}]",
