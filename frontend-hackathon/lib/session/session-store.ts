@@ -5,6 +5,7 @@
  */
 
 const SESSION_ID_KEY = 'movie_app_session_id'
+const AUTH_TOKEN_KEY = 'movie_app_auth_token'
 
 /**
  * Generate a unique session ID using crypto.randomUUID()
@@ -74,5 +75,32 @@ export function clearSessionId(): void {
   } catch (error) {
     // localStorage not available
     console.warn('[v0] Failed to clear session ID from localStorage:', error)
+  }
+}
+
+export function getAuthToken(): string | null {
+  if (typeof window === 'undefined') return null
+  try {
+    return localStorage.getItem(AUTH_TOKEN_KEY)
+  } catch {
+    return null
+  }
+}
+
+export function setAuthToken(token: string): void {
+  if (typeof window === 'undefined') return
+  try {
+    localStorage.setItem(AUTH_TOKEN_KEY, token)
+  } catch (error) {
+    console.warn('[v0] Failed to set auth token:', error)
+  }
+}
+
+export function clearAuthToken(): void {
+  if (typeof window === 'undefined') return
+  try {
+    localStorage.removeItem(AUTH_TOKEN_KEY)
+  } catch (error) {
+    console.warn('[v0] Failed to clear auth token:', error)
   }
 }
