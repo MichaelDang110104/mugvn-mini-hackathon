@@ -4,6 +4,7 @@ import com.hackathon.backend.dto.EventRequest;
 import com.hackathon.backend.enums.EventType;
 import com.hackathon.backend.events.UserEventReceivedEvent;
 import com.hackathon.backend.models.AppUser;
+import com.hackathon.backend.models.MflixUser;
 import com.hackathon.backend.models.UserEvent;
 import com.hackathon.backend.repositories.AppUserRepository;
 import com.hackathon.backend.repositories.MflixUserRepository;
@@ -26,6 +27,7 @@ public class EventProcessingListener {
     private final UserEventRepository userEventRepository;
     private final AppUserRepository appUserRepository;
     private final MflixUserRepository mflixUserRepository;
+    private final UserEmbeddingService userEmbeddingService;
 
     @Async("eventExecutor")
     @EventListener
@@ -38,11 +40,15 @@ public class EventProcessingListener {
                 : Instant.now();
 
         String userId = null;
+        String username = null;
         if (request.getUserId() != null) {
-            // Resolve actual user ID from the email passed via Spring Security context
-            mflixUserRepository.findByEmail(request.getUserId())
-                    .ifPresent(u -> request.setUserId(u.getId().toHexString()));
-            userId = request.getUserId();
+            // Resolve actual user ID and username from the email passed via Spring Security context
+            Optional<MflixUser> mflixUser = mflixUserRepository.findByEmail(request.getUserId());
+            if (mflixUser.isPresent()) {
+                request.setUserId(mflixUser.get().getId().toHexString());
+                userId = mflixUser.get().getId().toHexString();
+                username = mflixUser.get().getName();
+            }
         } else {
             try {
                 Optional<AppUser> appUser = appUserRepository.findBySessionId(request.getSessionId());
@@ -71,5 +77,23 @@ public class EventProcessingListener {
         } catch (DuplicateKeyException e) {
             log.debug("Duplicate event [{}], skipping", request.getEventId());
         }
+
+        try {
+            if (username != null && isStrongEvent(type, request.getEventValue())) {
+                userEmbeddingService.computeUserEmbedding(username);
+            }
+        } catch (Exception e) {
+            log.warn("User embedding computation failed for user [{}]: {}", username, e.getMessage());
+        }
+    }
+
+    private boolean isStrongEvent(EventType type, Integer eventValue) {
+        if (type == EventType.LIKE || type == EventType.SAVE || type == EventType.WATCH_START) {
+            return true;
+        }
+        if (type == EventType.RATING && eventValue != null && eventValue >= 4) {
+            return true;
+        }
+        return false;
     }
 }

@@ -6,18 +6,18 @@ import java.util.Arrays;
 
 public enum EventType {
 
-    VIEW("view", 1),
-    CLICK("click", 2),
-    SEARCH("search", 2),
-    LIKE("like", 4),
-    SAVE("save", 4),
-    WATCH_START("watch_start", 5),
-    RATING("rating", 5);
+    VIEW("view", 0.1),
+    CLICK("click", 0.2),
+    SEARCH("search", 0.2),
+    LIKE("like", 1.0),
+    SAVE("save", 0.8),
+    WATCH_START("watch_start", 0.5),
+    RATING("rating", 1.0);
 
     private final String value;
-    private final int weight;
+    private final double weight;
 
-    EventType(String value, int weight) {
+    EventType(String value, double weight) {
         this.value = value;
         this.weight = weight;
     }
@@ -27,7 +27,7 @@ public enum EventType {
         return value;
     }
 
-    public int getWeight() {
+    public double getWeight() {
         return weight;
     }
 
