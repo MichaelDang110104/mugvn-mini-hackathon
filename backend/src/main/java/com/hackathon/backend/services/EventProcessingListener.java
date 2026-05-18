@@ -4,6 +4,7 @@ import com.hackathon.backend.dto.EventRequest;
 import com.hackathon.backend.enums.EventType;
 import com.hackathon.backend.events.UserEventReceivedEvent;
 import com.hackathon.backend.models.AppUser;
+import com.hackathon.backend.models.MflixUser;
 import com.hackathon.backend.models.UserEvent;
 import com.hackathon.backend.repositories.AppUserRepository;
 import com.hackathon.backend.repositories.MflixUserRepository;
