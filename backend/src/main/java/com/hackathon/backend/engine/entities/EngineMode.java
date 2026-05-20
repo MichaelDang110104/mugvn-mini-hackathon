@@ -1,0 +1,7 @@
+package com.hackathon.backend.engine.entities;
+
+public enum EngineMode {
+    TRENDING,
+    SEARCH,
+    SIMILAR_TO_MOVIE,
+}

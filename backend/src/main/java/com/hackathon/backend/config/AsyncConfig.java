@@ -2,6 +2,7 @@ package com.hackathon.backend.config;
 
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.core.task.SimpleAsyncTaskExecutor;
 import org.springframework.scheduling.annotation.EnableAsync;
 import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
 
@@ -20,5 +21,28 @@ public class AsyncConfig {
         executor.setThreadNamePrefix("event-proc-");
         executor.initialize();
         return executor;
+    }
+
+    @Bean("ioExecutor")
+    public Executor ioExecutor() {
+        var pool = new SimpleAsyncTaskExecutor("io-thread-");
+
+        pool.setVirtualThreads(true);
+
+        return pool;
+    }
+
+    @Bean("cpuExecutor")
+    public Executor cpuExecutor() {
+        var cores = Runtime.getRuntime().availableProcessors();
+
+        var pool = new ThreadPoolTaskExecutor();
+        pool.setCorePoolSize(cores);
+        pool.setMaxPoolSize(cores);
+        pool.setQueueCapacity(cores * 20);
+        pool.setThreadNamePrefix("cpu-");
+        pool.initialize();
+
+        return pool;
     }
 }
