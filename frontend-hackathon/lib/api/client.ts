@@ -1,250 +1,420 @@
 /**
  * API Client Module
- * Provides mock API functions matching the backend contract
- * Designed for easy migration to real backend endpoints
+ * Makes real HTTP calls to the Spring Boot backend.
+ * Transforms backend responses into frontend-friendly MovieItem shapes.
+ *
+ * Backend base URL is configurable via NEXT_PUBLIC_API_BASE_URL env var.
+ * Defaults to http://localhost:8080 for local development.
  */
 
-import {
-  MOCK_MOVIES,
-  FEATURED_MOVIES,
-  TRENDING_MOVIES,
-  TOP_TODAY_MOVIES,
-  TOP_WEEK_MOVIES,
-  GENRE_COLLECTIONS,
-  type MovieItem,
-} from './mock-data'
+import type {
+    MovieItem,
+    BackendSearchResponse,
+    BackendMovieDetailResponse,
+    BackendRecommendationResponse,
+    BackendEventRequest,
+    BackendEventResponse,
+    SearchItem,
+    MovieDetail,
+} from './types'
 
-// Simulated delay for realistic behavior
-const SIMULATED_DELAY = 300 // ms
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8080'
+
+// ─── Session header helpers ─────────────────────────────────────────────────
+
+function buildHeaders(sessionId?: string): Record<string, string> {
+    const headers: Record<string, string> = {
+        'Content-Type': 'application/json',
+    }
+    if (sessionId) {
+        headers['X-Session-Id'] = sessionId
+    }
+    return headers
+}
+
+/**
+ * After every response, check if the backend minted a new session
+ * and persist it in localStorage if so.
+ */
+function captureSessionFromResponse(response: Response): string | null {
+    const backendSessionId = response.headers.get('X-Session-Id')
+    if (backendSessionId) {
+        try {
+            localStorage.setItem('movie_app_session_id', backendSessionId)
+        } catch {
+            // localStorage unavailable
+        }
+    }
+    return backendSessionId
+}
+
+// ─── Transform helpers: Backend → Frontend MovieItem ─────────────────────
+
+const PLACEHOLDER_POSTER = 'https://via.placeholder.com/200x300/333333/FFFFFF?text=No+Poster'
+const PLACEHOLDER_BACKDROP = 'https://via.placeholder.com/1280x720/333333/FFFFFF?text=No+Backdrop'
+
+function searchItemToMovieItem(item: SearchItem): MovieItem {
+    const m = item.movie
+    return {
+        id: m.id || '',
+        title: m.title || 'Untitled',
+        year: 0, // Not available in search items
+        genres: m.genres || [],
+        rating: m.ratingAvg ?? 0,
+        posterUrl: m.posterUrl || PLACEHOLDER_POSTER,
+        overview: '', // Not available in search items
+        backdropUrl: PLACEHOLDER_BACKDROP,
+        language: '',
+    }
+}
+
+function movieDetailToMovieItem(detail: MovieDetail): MovieItem & { language: string; overview: string } {
+    return {
+        id: detail.id || '',
+        title: detail.title || 'Untitled',
+        year: detail.year ?? 0,
+        genres: detail.genres || [],
+        rating: detail.ratingAvg ?? 0,
+        posterUrl: detail.posterUrl || PLACEHOLDER_POSTER,
+        overview: detail.overview || detail.fullplot || '',
+        backdropUrl: detail.posterUrl || PLACEHOLDER_BACKDROP, // Use poster as backdrop fallback
+        language: detail.languages?.[0] || '',
+    }
+}
+
+// ─── Response interfaces consumed by frontend hooks ─────────────────────
 
 interface RecommendationSection {
-  id: string
-  title: string
-  reasonChip?: string
-  movies: MovieItem[]
+    id: string
+    title: string
+    reasonChip?: string
+    movies: MovieItem[]
 }
 
-interface RecommendationsResponse {
-  sessionId: string
-  recommendationMode: 'semantic' | 'fallback_text' | 'personalized' | 'cold_start'
-  sections: RecommendationSection[]
+export interface RecommendationsResponse {
+    sessionId: string
+    recommendationMode: 'semantic' | 'fallback_text' | 'personalized' | 'cold_start'
+    sections: RecommendationSection[]
 }
 
-interface SearchResponse {
-  sessionId: string
-  query: string
-  results: MovieItem[]
-  searchMode: 'semantic' | 'fallback_text'
-  fallbackUsed: boolean
-  hitCount: number
+export interface SearchResponse {
+    sessionId: string
+    query: string
+    results: MovieItem[]
+    searchMode: 'semantic' | 'fallback_text'
+    fallbackUsed: boolean
+    hitCount: number
 }
 
-interface MovieDetailResponse {
-  sessionId: string
-  movie: MovieItem & { language: string; overview: string }
-  similarMovies: MovieItem[]
-  relatedMovies: MovieItem[]
+export interface MovieDetailResponse {
+    sessionId: string
+    movie: MovieItem & { language: string; overview: string }
+    similarMovies: MovieItem[]
+    relatedMovies: MovieItem[]
 }
 
-interface EventResponse {
-  eventId: string
-  accepted: boolean
+export interface EventResponse {
+    eventId: string
+    accepted: boolean
 }
+
+// ─── Input interfaces ───────────────────────────────────────────────────
 
 export interface FetchRecommendationsInput {
-  sessionId: string
-  limit?: number
-  offset?: number
+    sessionId: string
+    limit?: number
+    offset?: number
 }
 
 export interface FetchSearchInput {
-  sessionId: string
-  q: string
-  limit?: number
-  offset?: number
+    sessionId: string
+    q: string
+    limit?: number
+    offset?: number
 }
 
 export interface FetchMovieDetailInput {
-  sessionId: string
-  movieId: string
-  region?: string
+    sessionId: string
+    movieId: string
+    region?: string
 }
 
 export interface PostEventInput {
-  sessionId: string
-  eventId: string
-  eventType: string
-  screen: string
-  component: string
-  itemType: string
-  eventValue?: string
-  eventUnit?: string
-  metadata: Record<string, string | number | boolean | undefined>
-  timestamp: string
+    sessionId: string
+    eventId: string
+    eventType: string
+    screen: string
+    component: string
+    itemType: string
+    eventValue?: string
+    eventUnit?: string
+    metadata: Record<string, string | number | boolean | undefined>
+    timestamp: string
 }
 
-const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms))
-
-function shouldReturnFallback(): boolean {
-  return Math.random() < 0.1 // 10% chance of fallback
-}
-
-function selectRandomMovies(count: number, exclude?: string[]): MovieItem[] {
-  const available = MOCK_MOVIES.filter(m => !exclude?.includes(m.id))
-  const result: MovieItem[] = []
-  for (let i = 0; i < count && available.length > 0; i++) {
-    const idx = Math.floor(Math.random() * available.length)
-    result.push(available[idx])
-    available.splice(idx, 1)
-  }
-  return result
-}
+// ─── API functions ──────────────────────────────────────────────────────
 
 /**
- * Fetch home page recommendations
+ * GET /api/recommendations
+ * Fetch home page recommendations and transform into section-based layout.
  */
 export async function fetchRecommendations(input: FetchRecommendationsInput): Promise<RecommendationsResponse> {
-  await sleep(SIMULATED_DELAY)
+    const params = new URLSearchParams()
+    if (input.sessionId) params.set('sessionId', input.sessionId)
+    if (input.limit) params.set('limit', String(input.limit))
+    params.set('context', 'homepage')
 
-  const useFallback = shouldReturnFallback()
-  const mode: RecommendationsResponse['recommendationMode'] = useFallback ? 'fallback_text' : 'personalized'
-
-  const sections: RecommendationSection[] = [
-    {
-      id: 'recommended_for_you',
-      title: 'Recommended For You',
-      reasonChip: 'Based on your activity',
-      movies: selectRandomMovies(12),
-    },
-    {
-      id: 'trending_now',
-      title: 'Trending Now',
-      movies: TRENDING_MOVIES.slice(0, 12),
-    },
-    {
-      id: 'top_today',
-      title: 'Top Today',
-      movies: TOP_TODAY_MOVIES.slice(0, 12),
-    },
-    {
-      id: 'top_this_week',
-      title: 'Top This Week',
-      movies: TOP_WEEK_MOVIES.slice(0, 12),
-    },
-    {
-      id: 'because_you_liked',
-      title: 'Because You Liked Stellar Horizons 0',
-      reasonChip: 'Similar to movies you liked',
-      movies: selectRandomMovies(12),
-    },
-  ]
-
-  // Add genre sections
-  const genreEntries = Object.entries(GENRE_COLLECTIONS)
-  for (let i = 0; i < Math.min(2, genreEntries.length); i++) {
-    const [genre, movies] = genreEntries[i]
-    sections.push({
-      id: `genre_${genre.toLowerCase()}`,
-      title: `${genre} Movies`,
-      movies: movies.slice(0, 12),
+    const response = await fetch(`${API_BASE_URL}/api/recommendations?${params}`, {
+        method: 'GET',
+        headers: buildHeaders(input.sessionId),
     })
-  }
 
-  sections.push({
-    id: 'continue_exploring',
-    title: 'Continue Exploring',
-    movies: selectRandomMovies(12),
-  })
+    const sessionId = captureSessionFromResponse(response) || input.sessionId
 
-  return {
-    sessionId: input.sessionId,
-    recommendationMode: mode,
-    sections,
-  }
+    if (!response.ok) {
+        throw new Error(`Recommendations request failed with status ${response.status}`)
+    }
+
+    const data: BackendRecommendationResponse = await response.json()
+
+    // Transform flat items list into sections for the homepage UI
+    const allMovies = data.items.map(searchItemToMovieItem)
+
+    const sections: RecommendationSection[] = []
+
+    if (allMovies.length > 0) {
+        // Primary recommendation section
+        sections.push({
+            id: 'recommended_for_you',
+            title: 'Recommended For You',
+            reasonChip: data.mode === 'personalized' ? 'Based on your activity' : 'Popular picks',
+            movies: allMovies.slice(0, 12),
+        })
+
+        // If we have enough items, create additional sections
+        if (allMovies.length > 12) {
+            sections.push({
+                id: 'trending_now',
+                title: 'Trending Now',
+                movies: allMovies.slice(12, 24),
+            })
+        }
+
+        if (allMovies.length > 24) {
+            sections.push({
+                id: 'continue_exploring',
+                title: 'Continue Exploring',
+                movies: allMovies.slice(24),
+            })
+        }
+    }
+
+    return {
+        sessionId,
+        recommendationMode: data.mode,
+        sections,
+    }
 }
 
 /**
- * Fetch search results
+ * GET /api/movies/search
+ * Fetch search results.
  */
 export async function fetchSearchResults(input: FetchSearchInput): Promise<SearchResponse> {
-  await sleep(SIMULATED_DELAY)
+    const params = new URLSearchParams()
+    if (input.q) params.set('q', input.q)
+    if (input.sessionId) params.set('sessionId', input.sessionId)
+    if (input.limit) params.set('limit', String(input.limit))
 
-  const query = input.q.toLowerCase()
-  let results: MovieItem[] = []
+    const response = await fetch(`${API_BASE_URL}/api/movies/search?${params}`, {
+        method: 'GET',
+        headers: buildHeaders(input.sessionId),
+    })
 
-  // Simple mock search: match title or overview
-  results = MOCK_MOVIES.filter(m => m.title.toLowerCase().includes(query) || m.overview.toLowerCase().includes(query))
+    const sessionId = captureSessionFromResponse(response) || input.sessionId
 
-  const fallbackUsed = results.length < 3 || shouldReturnFallback()
-  const searchMode = fallbackUsed ? 'fallback_text' : 'semantic'
+    if (!response.ok) {
+        throw new Error(`Search request failed with status ${response.status}`)
+    }
 
-  if (fallbackUsed && results.length < 3) {
-    // Return random movies as fallback
-    results = selectRandomMovies(12)
-  } else if (results.length === 0) {
-    results = selectRandomMovies(12)
-  }
+    const data: BackendSearchResponse = await response.json()
 
-  return {
-    sessionId: input.sessionId,
-    query: input.q,
-    results: results.slice(0, input.limit || 50),
-    searchMode,
-    fallbackUsed,
-    hitCount: results.length,
-  }
+    const results = data.items.map(searchItemToMovieItem)
+
+    return {
+        sessionId,
+        query: data.query || input.q,
+        results,
+        searchMode: data.mode === 'cold_start' ? 'semantic' : (data.mode as 'semantic' | 'fallback_text'),
+        fallbackUsed: data.fallbackUsed,
+        hitCount: results.length,
+    }
 }
 
 /**
- * Fetch movie detail page data
+ * GET /api/movies/{movieId}
+ * Fetch movie detail page data.
  */
 export async function fetchMovieDetail(input: FetchMovieDetailInput): Promise<MovieDetailResponse> {
-  await sleep(SIMULATED_DELAY)
+    const params = new URLSearchParams()
+    if (input.sessionId) params.set('sessionId', input.sessionId)
+    if (input.region) params.set('region', input.region)
 
-  const movie = MOCK_MOVIES.find(m => m.id === input.movieId) || MOCK_MOVIES[0]
-  const similarMovies = selectRandomMovies(12, [movie.id])
-  const relatedMovies = selectRandomMovies(12, [movie.id, ...similarMovies.map(m => m.id)])
+    const response = await fetch(`${API_BASE_URL}/api/movies/${input.movieId}?${params}`, {
+        method: 'GET',
+        headers: buildHeaders(input.sessionId),
+    })
 
-  return {
-    sessionId: input.sessionId,
-    movie: {
-      ...movie,
-      language: movie.language,
-      overview: movie.overview,
-    },
-    similarMovies,
-    relatedMovies,
-  }
+    const sessionId = captureSessionFromResponse(response) || input.sessionId
+
+    if (!response.ok) {
+        if (response.status === 404) {
+            throw new Error('Movie not found')
+        }
+        throw new Error(`Movie detail request failed with status ${response.status}`)
+    }
+
+    const data: BackendMovieDetailResponse = await response.json()
+
+    const movie = movieDetailToMovieItem(data.movie)
+    const similarMovies = data.similarMovies.map(searchItemToMovieItem)
+
+    return {
+        sessionId,
+        movie,
+        similarMovies,
+        relatedMovies: [], // Backend doesn't have a separate relatedMovies list
+    }
 }
 
 /**
- * Post a single event (designed for batch endpoint later)
+ * POST /api/events
+ * Post a single event.
+ * Transforms frontend event shape into backend EventRequest.
  */
 export async function postEvent(input: PostEventInput): Promise<EventResponse> {
-  // In real implementation, this would be batched
-  // For now, just accept and return
-  console.log('[v0] Event posted:', {
-    eventId: input.eventId,
-    eventType: input.eventType,
-    movieId: input.metadata.movieId,
-  })
+    // Map frontend event types to backend event types
+    const eventTypeMap: Record<string, string> = {
+        view: 'view',
+        click: 'click',
+        search: 'search',
+        watch_start: 'view', // Backend treats watch_start as a view event
+        like: 'like',
+        save: 'save',
+        rating: 'rate',     // Frontend uses 'rating', backend expects 'rate'
+        rate: 'rate',
+    }
 
-  return {
-    eventId: input.eventId,
-    accepted: true,
-  }
+    const backendEventType = eventTypeMap[input.eventType] || input.eventType
+
+    // Build the backend request body
+    const movieId = input.metadata?.movieId as string | undefined
+    const body: BackendEventRequest = {
+        sessionId: input.sessionId,
+        eventId: input.eventId,
+        eventType: backendEventType as BackendEventRequest['eventType'],
+        movieId: movieId || null,
+        queryText: (input.eventType === 'search' ? input.eventValue : null) || (input.metadata?.query as string | undefined) || null,
+        eventValue: input.eventType === 'rating' || input.eventType === 'rate'
+            ? (input.eventValue ? parseInt(input.eventValue, 10) : null)
+            : null,
+        metadata: {
+            source: input.screen || 'unknown',
+            component: input.component,
+            ...(input.metadata || {}),
+        },
+        timestamp: input.timestamp || new Date().toISOString(),
+    }
+
+    try {
+        const response = await fetch(`${API_BASE_URL}/api/events`, {
+            method: 'POST',
+            headers: buildHeaders(input.sessionId),
+            body: JSON.stringify(body),
+        })
+
+        if (!response.ok) {
+            console.warn('[api] Event post failed with status', response.status)
+            // Don't throw for event failures — they should be best-effort
+            return { eventId: input.eventId, accepted: false }
+        }
+
+        const data: BackendEventResponse = await response.json()
+
+        return {
+            eventId: input.eventId,
+            accepted: data.accepted,
+        }
+    } catch (error) {
+        console.warn('[api] Event post error:', error)
+        return { eventId: input.eventId, accepted: false }
+    }
 }
 
 /**
- * Batch post events (future endpoint)
+ * Batch post events via POST /api/events/batch
+ * Falls back to individual POSTs if batch endpoint fails.
  */
 export async function postEventsBatch(input: { sessionId: string; events: PostEventInput[] }): Promise<{ accepted: number; failed: number }> {
-  await sleep(100)
+    // Map frontend event types to backend event types
+    const eventTypeMap: Record<string, string> = {
+        view: 'view', click: 'click', search: 'search',
+        watch_start: 'view', like: 'like', save: 'save',
+        rating: 'rate', rate: 'rate',
+    }
 
-  console.log('[v0] Batch posted:', input.events.length, 'events')
+    // Transform events to backend format
+    const backendEvents = input.events.map(e => {
+        const movieId = e.metadata?.movieId as string | undefined
+        return {
+            sessionId: e.sessionId,
+            eventId: e.eventId,
+            eventType: eventTypeMap[e.eventType] || e.eventType,
+            movieId: movieId || null,
+            queryText: e.eventType === 'search' ? (e.eventValue || e.metadata?.query) : null,
+            eventValue: (e.eventType === 'rating' || e.eventType === 'rate') && e.eventValue
+                ? parseInt(e.eventValue, 10) : null,
+            metadata: { source: e.screen, component: e.component, ...e.metadata },
+            timestamp: e.timestamp || new Date().toISOString(),
+        }
+    })
 
-  return {
-    accepted: input.events.length,
-    failed: 0,
-  }
+    try {
+        const response = await fetch(`${API_BASE_URL}/api/events/batch`, {
+            method: 'POST',
+            headers: buildHeaders(input.sessionId),
+            body: JSON.stringify(backendEvents),
+        })
+
+        if (!response.ok) {
+            console.warn('[api] Batch event post failed, falling back to individual')
+            // Fall back to individual posting
+            return fallbackIndividualPost(input)
+        }
+
+        return await response.json()
+    } catch (error) {
+        console.warn('[api] Batch event post error, falling back:', error)
+        return fallbackIndividualPost(input)
+    }
 }
+
+async function fallbackIndividualPost(input: { sessionId: string; events: PostEventInput[] }): Promise<{ accepted: number; failed: number }> {
+    let accepted = 0
+    let failed = 0
+
+    const results = await Promise.allSettled(
+        input.events.map(event => postEvent(event))
+    )
+
+    for (const result of results) {
+        if (result.status === 'fulfilled' && result.value.accepted) {
+            accepted++
+        } else {
+            failed++
+        }
+    }
+
+    return { accepted, failed }
+}
+
