@@ -42,7 +42,12 @@ function MovieDetailContent({ movieId }: { movieId: string }) {
   }
 
   const handleWatch = () => {
+    if (!movie.playbackUrl) {
+      return
+    }
+
     trackEvent.watchStart(movieId)
+    window.open(movie.playbackUrl, '_blank', 'noopener,noreferrer')
   }
 
   const handleLike = async () => {
@@ -127,10 +132,16 @@ function MovieDetailContent({ movieId }: { movieId: string }) {
               <div className="flex gap-3 mb-6 flex-wrap">
                 <button
                   onClick={handleWatch}
-                  className="inline-flex items-center gap-2 px-6 py-2 bg-white text-black rounded-lg font-bold hover:bg-gray-200 transition-colors"
+                  disabled={!movie.playbackUrl}
+                  className={cn(
+                    'inline-flex items-center gap-2 px-6 py-2 rounded-lg font-bold transition-colors',
+                    movie.playbackUrl
+                      ? 'bg-white text-black hover:bg-gray-200'
+                      : 'bg-gray-700 text-gray-300 cursor-not-allowed'
+                  )}
                 >
                   <Play className="w-5 h-5" />
-                  Watch Now
+                  {movie.playbackUrl ? 'Watch Now' : 'Playback Soon'}
                 </button>
 
                 <button

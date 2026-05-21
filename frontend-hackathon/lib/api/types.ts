@@ -49,6 +49,7 @@ export interface MovieDetail {
   fullplot: string | null
   genres: string[]
   posterUrl: string | null
+  playbackUrl: string | null
   ratingAvg: number | null
   availability: Availability | null
   cast: string[] | null
@@ -82,7 +83,7 @@ export interface BackendRecommendationResponse {
 export interface BackendEventRequest {
   sessionId: string
   eventId: string
-  eventType: 'search' | 'view' | 'click' | 'like' | 'save' | 'rate'
+  eventType: 'search' | 'view' | 'click' | 'watch_start' | 'like' | 'save' | 'rate'
   movieId?: string | null
   queryText?: string | null
   eventValue?: number | null

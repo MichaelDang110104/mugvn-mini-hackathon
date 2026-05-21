@@ -11,7 +11,8 @@ public class SearchScoringStrategy extends ScoringStrategy {
     @Override
     protected Map<String, Double> weights() {
         return Map.of(
-                "text_search",   1.0
+                "query_vector", 1.0,
+                "user_profile_vector", 0.7
         );
     }
 }

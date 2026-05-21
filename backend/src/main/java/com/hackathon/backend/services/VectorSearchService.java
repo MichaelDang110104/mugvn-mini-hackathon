@@ -2,56 +2,78 @@ package com.hackathon.backend.services;
 
 import com.hackathon.backend.dto.VectorSearchResult;
 import com.hackathon.backend.models.EmbeddedMovie;
-import com.hackathon.backend.models.Movie;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.bson.Document;
 import org.bson.types.ObjectId;
-import org.springframework.ai.document.Document;
-import org.springframework.ai.vectorstore.SearchRequest;
-import org.springframework.ai.vectorstore.VectorStore;
+import org.springframework.data.mongodb.core.MongoTemplate;
 import org.springframework.stereotype.Service;
 
-import java.time.Instant;
-import java.util.Date;
+import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
 
 @Service
 @RequiredArgsConstructor
 @Slf4j
 public class VectorSearchService {
 
-    private final VectorStore vectorStore;
+    private static final String VECTOR_INDEX_NAME = "vector_index";
+    private static final String VECTOR_PATH = "plot_embedding";
+    private static final String VECTOR_SCORE_FIELD = "vectorSearchScore";
+
+    private final MongoTemplate mongoTemplate;
+    private final EmbeddingService embeddingService;
 
     public List<VectorSearchResult> searchByQueryText(String queryText, int limit) {
         try {
-            SearchRequest request = SearchRequest.builder()
-                    .query(queryText)
-                    .topK(limit)
-                    .build();
-            return vectorStore.similaritySearch(request).stream()
-                    .map(this::mapToVectorSearchResult)
-                    .toList();
+            List<Double> queryEmbedding = embeddingService.embed(queryText);
+            return searchByEmbedding(queryEmbedding, limit);
         } catch (Exception e) {
             log.error("Vector search failed for query [{}]: {}", queryText, e.getMessage(), e);
             return List.of();
         }
     }
 
+    public List<VectorSearchResult> searchByEmbedding(List<Double> queryVector, int limit) {
+        if (queryVector == null || queryVector.isEmpty()) {
+            return List.of();
+        }
+
+        try {
+            int effectiveLimit = limit > 0 ? limit : 10;
+            int numCandidates = Math.max(effectiveLimit * 20, effectiveLimit);
+
+            List<Document> pipeline = List.of(
+                    new Document("$vectorSearch", new Document("index", VECTOR_INDEX_NAME)
+                            .append("path", VECTOR_PATH)
+                            .append("queryVector", queryVector)
+                            .append("numCandidates", numCandidates)
+                            .append("limit", effectiveLimit)),
+                    new Document("$project", projectionDocument())
+            );
+
+            List<VectorSearchResult> results = new ArrayList<>();
+            String collectionName = mongoTemplate.getCollectionName(EmbeddedMovie.class);
+            for (Document document : mongoTemplate.getDb().getCollection(collectionName).aggregate(pipeline)) {
+                results.add(mapToVectorSearchResult(document));
+            }
+            return results;
+        } catch (Exception e) {
+            log.error("Vector search failed for embedding: {}", e.getMessage(), e);
+            return List.of();
+        }
+    }
+
     public List<VectorSearchResult> findSimilarMovies(String moviePlot, String excludeMovieId, int limit) {
         try {
-            SearchRequest request = SearchRequest.builder()
-                    .query(moviePlot)
-                    .topK(limit + 1)
-                    .build();
-            return vectorStore.similaritySearch(request).stream()
-                    .filter(doc -> {
-                        ObjectId docId = parseObjectId(doc.getId());
-                        ObjectId excludeId = parseObjectId(excludeMovieId);
-                        return docId == null || excludeId == null || !docId.equals(excludeId);
+            List<Double> queryEmbedding = embeddingService.embed(moviePlot);
+            return searchByEmbedding(queryEmbedding, limit + 1).stream()
+                    .filter(result -> {
+                        ObjectId movieId = result.getMovie().getId();
+                        ObjectId excludedMovieId = parseObjectId(excludeMovieId);
+                        return movieId == null || excludedMovieId == null || !movieId.equals(excludedMovieId);
                     })
                     .limit(limit)
-                    .map(this::mapToVectorSearchResult)
                     .toList();
         } catch (Exception e) {
             log.error("Similar movie search failed: {}", e.getMessage(), e);
@@ -69,107 +91,35 @@ public class VectorSearchService {
         }
     }
 
-    @SuppressWarnings("unchecked")
-    private VectorSearchResult mapToVectorSearchResult(Document doc) {
-        Map<String, Object> meta = doc.getMetadata();
-
-        EmbeddedMovie movie = EmbeddedMovie.builder()
-                .id(parseObjectId(doc.getId()))
-                .title((String) meta.get("title"))
-                .plot((String) meta.get("plot"))
-                .fullplot((String) meta.get("fullplot"))
-                .genres((List<String>) meta.get("genres"))
-                .cast((List<String>) meta.get("cast"))
-                .directors((List<String>) meta.get("directors"))
-                .writers((List<String>) meta.get("writers"))
-                .languages((List<String>) meta.get("languages"))
-                .countries((List<String>) meta.get("countries"))
-                .runtime(toInteger(meta.get("runtime")))
-                .year(toInteger(meta.get("year")))
-                .rated((String) meta.get("rated"))
-                .type((String) meta.get("type"))
-                .poster((String) meta.get("poster"))
-                .lastupdated((String) meta.get("lastupdated"))
-                .released(toDate(meta.get("released")))
-                .numMflixComments(toInteger(meta.get("num_mflix_comments")))
-                .imdb(mapImdb(meta.get("imdb")))
-                .tomatoes(mapTomatoes(meta.get("tomatoes")))
-                .awards(mapAwards(meta.get("awards")))
-                .build();
-
-        double score = doc.getScore() != null ? doc.getScore() : 0.0;
-        return VectorSearchResult.builder().movie(movie).vectorSearchScore(score).build();
+    private VectorSearchResult mapToVectorSearchResult(Document document) {
+        EmbeddedMovie movie = mongoTemplate.getConverter().read(EmbeddedMovie.class, document);
+        Double score = document.getDouble(VECTOR_SCORE_FIELD);
+        return VectorSearchResult.builder().movie(movie).vectorSearchScore(score != null ? score : 0.0).build();
     }
 
-    @SuppressWarnings("unchecked")
-    private Movie.Imdb mapImdb(Object obj) {
-        if (obj == null) return null;
-        Map<String, Object> doc = (Map<String, Object>) obj;
-        return Movie.Imdb.builder()
-                .rating(toDouble(doc.get("rating")))
-                .votes(toInteger(doc.get("votes")))
-                .id(toInteger(doc.get("id")))
-                .build();
-    }
-
-    @SuppressWarnings("unchecked")
-    private Movie.Awards mapAwards(Object obj) {
-        if (obj == null) return null;
-        Map<String, Object> doc = (Map<String, Object>) obj;
-        return Movie.Awards.builder()
-                .wins(toInteger(doc.get("wins")))
-                .nominations(toInteger(doc.get("nominations")))
-                .text((String) doc.get("text"))
-                .build();
-    }
-
-    @SuppressWarnings("unchecked")
-    private Movie.Tomatoes mapTomatoes(Object obj) {
-        if (obj == null) return null;
-        Map<String, Object> doc = (Map<String, Object>) obj;
-        return Movie.Tomatoes.builder()
-                .viewer(mapTomatoesReview(doc.get("viewer")))
-                .critic(mapTomatoesReview(doc.get("critic")))
-                .dvd(toDate(doc.get("dvd")))
-                .lastUpdated(toDate(doc.get("lastUpdated")))
-                .rotten(toInteger(doc.get("rotten")))
-                .fresh(toInteger(doc.get("fresh")))
-                .production((String) doc.get("production"))
-                .build();
-    }
-
-    @SuppressWarnings("unchecked")
-    private Movie.TomatoesReview mapTomatoesReview(Object obj) {
-        if (obj == null) return null;
-        Map<String, Object> doc = (Map<String, Object>) obj;
-        return Movie.TomatoesReview.builder()
-                .rating(toDouble(doc.get("rating")))
-                .numReviews(toInteger(doc.get("numReviews")))
-                .meter(toInteger(doc.get("meter")))
-                .build();
-    }
-
-    private Integer toInteger(Object obj) {
-        if (obj == null) return null;
-        if (obj instanceof Integer i) return i;
-        if (obj instanceof Long l) return l.intValue();
-        if (obj instanceof Double d) return d.intValue();
-        return null;
-    }
-
-    private Double toDouble(Object obj) {
-        if (obj == null) return null;
-        if (obj instanceof Double d) return d;
-        if (obj instanceof Integer i) return i.doubleValue();
-        if (obj instanceof Long l) return l.doubleValue();
-        return null;
-    }
-
-    private Date toDate(Object obj) {
-        if (obj == null) return null;
-        if (obj instanceof Date d) return d;
-        if (obj instanceof Long l) return new Date(l);
-        if (obj instanceof Instant instant) return Date.from(instant);
-        return null;
+    private Document projectionDocument() {
+        return new Document("_id", 1)
+                .append("title", 1)
+                .append("plot", 1)
+                .append("fullplot", 1)
+                .append("genres", 1)
+                .append("cast", 1)
+                .append("directors", 1)
+                .append("writers", 1)
+                .append("languages", 1)
+                .append("countries", 1)
+                .append("runtime", 1)
+                .append("year", 1)
+                .append("rated", 1)
+                .append("type", 1)
+                .append("poster", 1)
+                .append("playbackUrl", 1)
+                .append("lastupdated", 1)
+                .append("released", 1)
+                .append("num_mflix_comments", 1)
+                .append("imdb", 1)
+                .append("tomatoes", 1)
+                .append("awards", 1)
+                .append(VECTOR_SCORE_FIELD, new Document("$meta", "vectorSearchScore"));
     }
 }

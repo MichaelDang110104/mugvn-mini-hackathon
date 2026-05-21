@@ -100,6 +100,7 @@ public class ContractMovieController {
                     .fullplot(movie.getFullplot())
                     .genres(movie.getGenres())
                     .posterUrl(movie.getPoster())
+                    .playbackUrl(movie.getPlaybackUrl())
                     .ratingAvg(movie.getImdb() != null ? movie.getImdb().getRating() : null)
                     .cast(movie.getCast())
                     .directors(movie.getDirectors())

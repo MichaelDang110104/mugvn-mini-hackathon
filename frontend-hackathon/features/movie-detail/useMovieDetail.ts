@@ -6,7 +6,7 @@ import { useSessionId } from '@/hooks/useSessionId'
 import type { MovieItem } from '@/lib/api/mock-data'
 
 interface MovieDetailState {
-  movie: (MovieItem & { language: string; overview: string }) | null
+  movie: (MovieItem & { language: string; overview: string; playbackUrl: string | null }) | null
   similarMovies: MovieItem[]
   relatedMovies: MovieItem[]
   loading: boolean

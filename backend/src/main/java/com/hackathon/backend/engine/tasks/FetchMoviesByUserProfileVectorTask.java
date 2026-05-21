@@ -12,17 +12,15 @@ import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
 
-
 @Component
-public class FetchMoviesByVectorSearchTask extends Task<RecommendationContext> {
+public class FetchMoviesByUserProfileVectorTask extends Task<RecommendationContext> {
 
-    private static final String CANDIDATE_GROUP = "query_vector";
+    private static final String CANDIDATE_GROUP = "user_profile_vector";
 
     private final VectorSearchService vectorSearchService;
     private final Executor ioExecutor;
 
-
-    public FetchMoviesByVectorSearchTask(
+    public FetchMoviesByUserProfileVectorTask(
             VectorSearchService vectorSearchService,
             @Qualifier("ioExecutor") Executor ioExecutor
     ) {
@@ -36,17 +34,17 @@ public class FetchMoviesByVectorSearchTask extends Task<RecommendationContext> {
     }
 
     @Override
-    public boolean shouldSkip(RecommendationContext context) {
-        return !context.hasQuery();
+    public boolean shouldSkip(RecommendationContext ctx) {
+        return ctx.getUserProfileEmbedding() == null || ctx.getUserProfileEmbedding().isEmpty();
     }
 
     @Override
     public CompletableFuture<RecommendationContext> execute(RecommendationContext ctx) {
         return CompletableFuture.supplyAsync(() -> {
             int limit = ctx.getLimit() > 0 ? ctx.getLimit() : 10;
-            List<ScoredMovie> candidates = vectorSearchService.searchByQueryText(ctx.getSearchQuery(), limit)
+            List<ScoredMovie> candidates = vectorSearchService.searchByEmbedding(ctx.getUserProfileEmbedding(), limit)
                     .stream()
-                    .map(r -> ObjectUtils.toScoredMovie(r, name()))
+                    .map(result -> ObjectUtils.toScoredMovie(result, name()))
                     .toList();
             ctx.putCandidateGroup(CANDIDATE_GROUP, candidates);
             return ctx;

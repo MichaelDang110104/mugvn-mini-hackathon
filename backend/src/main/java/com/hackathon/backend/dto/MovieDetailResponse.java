@@ -30,6 +30,7 @@ public class MovieDetailResponse {
         private String overview;
         private List<String> genres;
         private String posterUrl;
+        private String playbackUrl;
         private Double ratingAvg;
         private Availability availability;
 

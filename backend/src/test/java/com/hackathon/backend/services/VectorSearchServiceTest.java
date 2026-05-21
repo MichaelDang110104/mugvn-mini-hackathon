@@ -1,131 +1,124 @@
 package com.hackathon.backend.services;
 
 import com.hackathon.backend.dto.VectorSearchResult;
+import com.hackathon.backend.models.EmbeddedMovie;
+import com.mongodb.client.AggregateIterable;
+import com.mongodb.client.MongoCollection;
+import com.mongodb.client.MongoDatabase;
+import org.bson.Document;
+import org.bson.types.ObjectId;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.springframework.ai.document.Document;
-import org.springframework.ai.vectorstore.SearchRequest;
-import org.springframework.ai.vectorstore.VectorStore;
+import org.springframework.data.mongodb.core.MongoTemplate;
+import org.springframework.data.mongodb.core.convert.MongoConverter;
 
-import java.util.HashMap;
+import java.util.Iterator;
 import java.util.List;
-import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.*;
-import static org.mockito.Mockito.lenient;
+import static org.mockito.ArgumentMatchers.anyList;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.anyString;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
 class VectorSearchServiceTest {
 
     @Mock
-    private VectorStore vectorStore;
+    private MongoTemplate mongoTemplate;
+
+    @Mock
+    private EmbeddingService embeddingService;
+
+    @Mock
+    private MongoDatabase mongoDatabase;
+
+    @Mock
+    private MongoCollection<Document> mongoCollection;
+
+    @Mock
+    private AggregateIterable<Document> aggregateIterable;
+
+    @Mock
+    private MongoConverter mongoConverter;
 
     @InjectMocks
     private VectorSearchService service;
 
-    private Document buildMovieDocument(String id, String title, double score) {
-        Map<String, Object> meta = new HashMap<>();
-        meta.put("title", title);
-        meta.put("plot", "A plot about " + title);
-        meta.put("genres", List.of("Action"));
-        meta.put("cast", List.of("Actor One"));
-        meta.put("directors", List.of("Director One"));
-        meta.put("writers", List.of("Writer One"));
-        meta.put("languages", List.of("English"));
-        meta.put("countries", List.of("USA"));
-        meta.put("runtime", 120);
-        meta.put("year", 1999);
-        meta.put("rated", "PG-13");
-        meta.put("type", "movie");
-        meta.put("poster", "https://example.com/poster.jpg");
-        meta.put("lastupdated", "2015-09-01");
-        meta.put("num_mflix_comments", 3);
-
-        Document doc = mock(Document.class);
-        lenient().when(doc.getId()).thenReturn(id);
-        lenient().when(doc.getScore()).thenReturn(score);
-        lenient().when(doc.getMetadata()).thenReturn(meta);
-        return doc;
-    }
-
     @Test
-    void searchByQueryText_mapsDocumentToResult() {
-        Document doc = buildMovieDocument("507f1f77bcf86cd799439011", "The Matrix", 0.95);
-        when(vectorStore.similaritySearch(any(SearchRequest.class))).thenReturn(List.of(doc));
+    void searchByQueryText_embedsQueryAndMapsMongoResults() {
+        Document resultDocument = new Document("_id", new ObjectId("507f1f77bcf86cd799439011"))
+                .append("vectorSearchScore", 0.95D);
+
+        EmbeddedMovie movie = EmbeddedMovie.builder()
+                .id(new ObjectId("507f1f77bcf86cd799439011"))
+                .title("The Matrix")
+                .genres(List.of("Action"))
+                .build();
+
+        when(embeddingService.embed("sci-fi hacker")).thenReturn(List.of(0.1, 0.2, 0.3));
+        when(mongoTemplate.getCollectionName(EmbeddedMovie.class)).thenReturn("embedded_movies");
+        when(mongoTemplate.getDb()).thenReturn(mongoDatabase);
+        when(mongoDatabase.getCollection("embedded_movies")).thenReturn(mongoCollection);
+        when(mongoCollection.aggregate(anyList())).thenReturn(aggregateIterable);
+        when(aggregateIterable.iterator()).thenReturn(singletonIterator(resultDocument));
+        when(mongoTemplate.getConverter()).thenReturn(mongoConverter);
+        when(mongoConverter.read(eq(EmbeddedMovie.class), eq(resultDocument))).thenReturn(movie);
 
         List<VectorSearchResult> results = service.searchByQueryText("sci-fi hacker", 5);
 
         assertThat(results).hasSize(1);
-        assertThat(results.get(0).getVectorSearchScore()).isEqualTo(0.95);
         assertThat(results.get(0).getMovie().getTitle()).isEqualTo("The Matrix");
-        assertThat(results.get(0).getMovie().getGenres()).containsExactly("Action");
+        assertThat(results.get(0).getVectorSearchScore()).isEqualTo(0.95);
     }
 
     @Test
-    void searchByQueryText_passesCorrectSearchRequest() {
-        when(vectorStore.similaritySearch(any(SearchRequest.class))).thenReturn(List.of());
-
-        service.searchByQueryText("action movies", 7);
-
-        ArgumentCaptor<SearchRequest> captor = ArgumentCaptor.forClass(SearchRequest.class);
-        verify(vectorStore).similaritySearch(captor.capture());
-        assertThat(captor.getValue().getQuery()).isEqualTo("action movies");
-        assertThat(captor.getValue().getTopK()).isEqualTo(7);
-    }
-
-    @Test
-    void searchByQueryText_whenVectorStoreThrows_returnsEmpty() {
-        when(vectorStore.similaritySearch(any(SearchRequest.class)))
-                .thenThrow(new RuntimeException("Atlas connection error"));
-
-        List<VectorSearchResult> results = service.searchByQueryText("sci-fi", 5);
+    void searchByEmbedding_withEmptyVector_returnsEmptyWithoutHittingMongo() {
+        List<VectorSearchResult> results = service.searchByEmbedding(List.of(), 5);
 
         assertThat(results).isEmpty();
+        verify(mongoTemplate, never()).getDb();
     }
 
     @Test
-    void findSimilarMovies_excludesTargetMovieById() {
-        String targetId = "507f1f77bcf86cd799439011";
-        String otherId  = "507f1f77bcf86cd799439012";
+    void findSimilarMovies_excludesTargetMovieId() {
+        Document selfDocument = new Document("_id", new ObjectId("507f1f77bcf86cd799439011"))
+                .append("vectorSearchScore", 1.0D);
+        Document otherDocument = new Document("_id", new ObjectId("507f1f77bcf86cd799439012"))
+                .append("vectorSearchScore", 0.9D);
 
-        Document self  = buildMovieDocument(targetId, "The Matrix",          1.00);
-        Document other = buildMovieDocument(otherId,  "The Matrix Reloaded", 0.92);
+        EmbeddedMovie selfMovie = EmbeddedMovie.builder()
+                .id(new ObjectId("507f1f77bcf86cd799439011"))
+                .title("The Matrix")
+                .build();
+        EmbeddedMovie otherMovie = EmbeddedMovie.builder()
+                .id(new ObjectId("507f1f77bcf86cd799439012"))
+                .title("The Matrix Reloaded")
+                .build();
 
-        when(vectorStore.similaritySearch(any(SearchRequest.class)))
-                .thenReturn(List.of(self, other));
+        when(embeddingService.embed(anyString())).thenReturn(List.of(0.1, 0.2, 0.3));
+        when(mongoTemplate.getCollectionName(EmbeddedMovie.class)).thenReturn("embedded_movies");
+        when(mongoTemplate.getDb()).thenReturn(mongoDatabase);
+        when(mongoDatabase.getCollection("embedded_movies")).thenReturn(mongoCollection);
+        when(mongoCollection.aggregate(anyList())).thenReturn(aggregateIterable);
+        when(aggregateIterable.iterator()).thenReturn(List.of(selfDocument, otherDocument).iterator());
+        when(mongoTemplate.getConverter()).thenReturn(mongoConverter);
+        when(mongoConverter.read(eq(EmbeddedMovie.class), eq(selfDocument))).thenReturn(selfMovie);
+        when(mongoConverter.read(eq(EmbeddedMovie.class), eq(otherDocument))).thenReturn(otherMovie);
 
         List<VectorSearchResult> results = service.findSimilarMovies(
-                "A hacker learns the truth.", targetId, 1);
+                "A hacker learns the truth.", "507f1f77bcf86cd799439011", 1);
 
         assertThat(results).hasSize(1);
         assertThat(results.get(0).getMovie().getTitle()).isEqualTo("The Matrix Reloaded");
     }
 
-    @Test
-    void findSimilarMovies_whenVectorStoreThrows_returnsEmpty() {
-        when(vectorStore.similaritySearch(any(SearchRequest.class)))
-                .thenThrow(new RuntimeException("Atlas connection error"));
-
-        List<VectorSearchResult> results = service.findSimilarMovies(
-                "A hacker learns the truth.", "507f1f77bcf86cd799439011", 5);
-
-        assertThat(results).isEmpty();
-    }
-
-    @Test
-    void findSimilarMovies_requestsTopKPlusOne() {
-        when(vectorStore.similaritySearch(any(SearchRequest.class))).thenReturn(List.of());
-
-        service.findSimilarMovies("some plot", "anyId", 5);
-
-        ArgumentCaptor<SearchRequest> captor = ArgumentCaptor.forClass(SearchRequest.class);
-        verify(vectorStore).similaritySearch(captor.capture());
-        assertThat(captor.getValue().getTopK()).isEqualTo(6); // limit + 1
+    private Iterator<Document> singletonIterator(Document document) {
+        return List.of(document).iterator();
     }
 }

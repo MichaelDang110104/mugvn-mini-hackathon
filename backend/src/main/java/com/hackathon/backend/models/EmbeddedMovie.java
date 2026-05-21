@@ -38,6 +38,7 @@ public class EmbeddedMovie {
     private String rated;
     private String type;
     private String poster;
+    private String playbackUrl;
     private String lastupdated;
 
     private Date released;
