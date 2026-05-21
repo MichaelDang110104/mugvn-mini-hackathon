@@ -68,7 +68,7 @@ function searchItemToMovieItem(item: SearchItem): MovieItem {
     }
 }
 
-function movieDetailToMovieItem(detail: MovieDetail): MovieItem & { language: string; overview: string } {
+function movieDetailToMovieItem(detail: MovieDetail): MovieItem & { language: string; overview: string; playbackUrl: string | null } {
     return {
         id: detail.id || '',
         title: detail.title || 'Untitled',
@@ -79,6 +79,7 @@ function movieDetailToMovieItem(detail: MovieDetail): MovieItem & { language: st
         overview: detail.overview || detail.fullplot || '',
         backdropUrl: detail.posterUrl || PLACEHOLDER_BACKDROP, // Use poster as backdrop fallback
         language: detail.languages?.[0] || '',
+        playbackUrl: detail.playbackUrl,
     }
 }
 
@@ -108,7 +109,7 @@ export interface SearchResponse {
 
 export interface MovieDetailResponse {
     sessionId: string
-    movie: MovieItem & { language: string; overview: string }
+    movie: MovieItem & { language: string; overview: string; playbackUrl: string | null }
     similarMovies: MovieItem[]
     relatedMovies: MovieItem[]
 }
@@ -298,10 +299,10 @@ export async function postEvent(input: PostEventInput): Promise<EventResponse> {
         view: 'view',
         click: 'click',
         search: 'search',
-        watch_start: 'view', // Backend treats watch_start as a view event
+        watch_start: 'watch_start',
         like: 'like',
         save: 'save',
-        rating: 'rate',     // Frontend uses 'rating', backend expects 'rate'
+        rating: 'rate',
         rate: 'rate',
     }
 
@@ -359,7 +360,7 @@ export async function postEventsBatch(input: { sessionId: string; events: PostEv
     // Map frontend event types to backend event types
     const eventTypeMap: Record<string, string> = {
         view: 'view', click: 'click', search: 'search',
-        watch_start: 'view', like: 'like', save: 'save',
+        watch_start: 'watch_start', like: 'like', save: 'save',
         rating: 'rate', rate: 'rate',
     }
 
@@ -417,4 +418,3 @@ async function fallbackIndividualPost(input: { sessionId: string; events: PostEv
 
     return { accepted, failed }
 }
-

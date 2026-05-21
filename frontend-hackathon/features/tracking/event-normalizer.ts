@@ -7,7 +7,7 @@ import type { RawEvent } from './raw-event-factory'
 
 export interface NormalizedEvent {
   eventId: string
-  eventType: 'view' | 'click' | 'search' | 'like' | 'save' | 'rate'
+  eventType: 'view' | 'click' | 'search' | 'watch_start' | 'like' | 'save' | 'rate'
   eventValue?: string
   eventUnit?: string
   screen: string
@@ -30,7 +30,7 @@ function mapActionToEventType(action: string): NormalizedEvent['eventType'] {
     impression: 'view',
     click: 'click',
     search: 'search',
-    watch_start: 'view',  // Backend treats watch_start as view
+    watch_start: 'watch_start',
     like: 'like',
     save: 'save',
     rating: 'rate',       // Backend expects 'rate', not 'rating'

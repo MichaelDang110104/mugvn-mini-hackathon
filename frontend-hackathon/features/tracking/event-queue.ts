@@ -91,7 +91,7 @@ function shouldDedupeImpression(eventType: string, screen: string, component: st
  * Check if submit action should be prevented (double-submit)
  */
 function shouldPreventDoubleSubmit(eventType: string, movieId?: string): boolean {
-    if (!['like', 'save', 'rate', 'view'].includes(eventType)) return false
+    if (!['like', 'save', 'rate', 'watch_start'].includes(eventType)) return false
 
     const key = `${eventType}_${movieId}`
     const lastSubmit = globalState.recentSubmitMap[key] || 0
@@ -145,7 +145,7 @@ export function queueEvent(rawEvent: RawEvent, eventSessionId: string): void {
     console.log('[v0] Event queued:', normalized.eventType, normalized.metadata.movieId)
 
     // Immediate flush for high-value events
-    if (['like', 'save', 'rate'].includes(normalized.eventType)) {
+    if (['like', 'save', 'rate', 'watch_start'].includes(normalized.eventType)) {
         flushQueue(eventSessionId)
     }
 }

@@ -28,6 +28,7 @@ public class EventProcessingListener {
     private final AppUserRepository appUserRepository;
     private final MflixUserRepository mflixUserRepository;
     private final UserEmbeddingService userEmbeddingService;
+    private final ProfileUpdatePolicy profileUpdatePolicy;
 
     @Async("eventExecutor")
     @EventListener
@@ -39,24 +40,7 @@ public class EventProcessingListener {
                 ? Instant.parse(request.getTimestamp())
                 : Instant.now();
 
-        String userId = null;
-        String username = null;
-        if (request.getUserId() != null) {
-            // Resolve actual user ID and username from the email passed via Spring Security context
-            Optional<MflixUser> mflixUser = mflixUserRepository.findByEmail(request.getUserId());
-            if (mflixUser.isPresent()) {
-                request.setUserId(mflixUser.get().getId().toHexString());
-                userId = mflixUser.get().getId().toHexString();
-                username = mflixUser.get().getName();
-            }
-        } else {
-            try {
-                Optional<AppUser> appUser = appUserRepository.findBySessionId(request.getSessionId());
-                userId = appUser.map(AppUser::getId).orElse(null);
-            } catch (Exception e) {
-                log.warn("Could not resolve userId for session [{}]: {}", request.getSessionId(), e.getMessage());
-            }
-        }
+        String userId = resolveUserId(request);
 
         UserEvent userEvent = UserEvent.builder()
                 .eventId(request.getEventId())
@@ -76,24 +60,34 @@ public class EventProcessingListener {
                     userEvent.getEventId(), type.getValue(), type.getWeight(), userEvent.getSessionId());
         } catch (DuplicateKeyException e) {
             log.debug("Duplicate event [{}], skipping", request.getEventId());
+            return;
         }
 
         try {
-            if (username != null && isStrongEvent(type, request.getEventValue())) {
-                userEmbeddingService.computeUserEmbedding(username);
+            if (userId != null && profileUpdatePolicy.shouldRecompute(type, request.getEventValue())) {
+                userEmbeddingService.computeUserEmbedding(userId);
             }
         } catch (Exception e) {
-            log.warn("User embedding computation failed for user [{}]: {}", username, e.getMessage());
+            log.warn("User embedding computation failed for user [{}]: {}", userId, e.getMessage());
         }
     }
 
-    private boolean isStrongEvent(EventType type, Integer eventValue) {
-        if (type == EventType.LIKE || type == EventType.SAVE || type == EventType.WATCH_START) {
-            return true;
+    private String resolveUserId(EventRequest request) {
+        if (request.getUserId() != null) {
+            Optional<MflixUser> mflixUser = mflixUserRepository.findByEmail(request.getUserId());
+            if (mflixUser.isPresent()) {
+                String userId = mflixUser.get().getId().toHexString();
+                request.setUserId(userId);
+                return userId;
+            }
         }
-        if (type == EventType.RATING && eventValue != null && eventValue >= 4) {
-            return true;
+
+        try {
+            Optional<AppUser> appUser = appUserRepository.findBySessionId(request.getSessionId());
+            return appUser.map(AppUser::getId).orElse(null);
+        } catch (Exception e) {
+            log.warn("Could not resolve userId for session [{}]: {}", request.getSessionId(), e.getMessage());
+            return null;
         }
-        return false;
     }
 }

@@ -18,12 +18,18 @@ public class ParallelPipeline<C extends TaskContext> extends Task<C> {
         if (tasks.isEmpty()) return CompletableFuture.completedFuture(ctx);
 
         List<CompletableFuture<C>> futures = tasks.stream()
-                .map(t -> t.execute(ctx)
+                .map(t -> {
+                    if (!ctx.isSuccess() || t.shouldSkip(ctx)) {
+                        return CompletableFuture.completedFuture(ctx);
+                    }
+
+                    return t.execute(ctx)
                         .orTimeout(ctx.timeoutMs(), TimeUnit.MILLISECONDS)
                         .exceptionally(ex -> {
                             ctx.addError(t.name(), ex.getMessage());
                             return ctx;
-                        }))
+                        });
+                })
                 .toList();
 
         return CompletableFuture.allOf(futures.toArray(new CompletableFuture[0]))

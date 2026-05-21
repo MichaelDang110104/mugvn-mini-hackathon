@@ -4,7 +4,10 @@ import com.hackathon.backend.commons.pipeline.ParallelPipeline;
 import com.hackathon.backend.commons.pipeline.SequentialPipeline;
 import com.hackathon.backend.engine.entities.RecommendationContext;
 import com.hackathon.backend.engine.tasks.FetchMovieDetailsTask;
+import com.hackathon.backend.engine.tasks.FetchMoviesByUserProfileVectorTask;
 import com.hackathon.backend.engine.tasks.FetchMoviesByVectorSearchTask;
+import com.hackathon.backend.engine.tasks.LoadRecommendationProfileTask;
+import com.hackathon.backend.engine.tasks.MergeCandidateGroupsTask;
 import com.hackathon.backend.engine.tasks.MovieReRankTask;
 import com.hackathon.backend.models.Movie;
 import lombok.RequiredArgsConstructor;
@@ -18,8 +21,11 @@ import java.util.concurrent.CompletableFuture;
 public class RecommendationEngine {
 
     private final FetchMoviesByVectorSearchTask fetchMoviesByVectorSearchTask;
+    private final FetchMoviesByUserProfileVectorTask fetchMoviesByUserProfileVectorTask;
     private final MovieReRankTask movieReRankTask;
     private final FetchMovieDetailsTask fetchMovieDetailsTask;
+    private final LoadRecommendationProfileTask loadRecommendationProfileTask;
+    private final MergeCandidateGroupsTask mergeCandidateGroupsTask;
 
     public CompletableFuture<List<Movie>> execute(RecommendationContext context) {
 
@@ -32,17 +38,20 @@ public class RecommendationEngine {
     }
 
     public SequentialPipeline<RecommendationContext> prepareDataPipeline() {
-        return new SequentialPipeline<RecommendationContext>(); //get user profile, recent search, recent watch, can chain pipelines together
+        return new SequentialPipeline<RecommendationContext>()
+                .then(loadRecommendationProfileTask);
     }
 
 
     public ParallelPipeline<RecommendationContext> fetchPipeLine() {
         return new ParallelPipeline<RecommendationContext>()
-                .add(fetchMoviesByVectorSearchTask);
+                .add(fetchMoviesByVectorSearchTask)
+                .add(fetchMoviesByUserProfileVectorTask);
     }
 
     public SequentialPipeline<RecommendationContext> deobietdatten() {
         return new SequentialPipeline<RecommendationContext>()
+                .then(mergeCandidateGroupsTask)
                 .then(movieReRankTask)
                 .then(fetchMovieDetailsTask);
     }

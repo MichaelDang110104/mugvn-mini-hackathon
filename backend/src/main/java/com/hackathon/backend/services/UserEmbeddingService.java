@@ -32,23 +32,15 @@ public class UserEmbeddingService {
     private static final double HALF_LIFE_DAYS = 21.0;
     private static final double LAMBDA = Math.log(2) / HALF_LIFE_DAYS;
 
-    /**
-     * Computes a user's profile embedding from their event history.
-     * Uses weighted average of movie embeddings with exponential time decay.
-     *
-     * TODO: đợi micheal làm xong phần user rồi write vào DB sau, chưa verify tính đúng sai
-     *
-     * @param username the username (MflixUser.name) used to identify the user in this hackathon
-     */
-    public void computeUserEmbedding(String username) {
-        if (username == null || username.isBlank()) {
-            log.debug("computeUserEmbedding skipped: no username");
+    public void computeUserEmbedding(String userId) {
+        if (userId == null || userId.isBlank()) {
+            log.debug("computeUserEmbedding skipped: no userId");
             return;
         }
 
-        List<UserEvent> events = userEventRepository.findByUserIdOrderByTimestampDesc(username);
+        List<UserEvent> events = userEventRepository.findByUserIdOrderByTimestampDesc(userId);
         if (events.isEmpty()) {
-            log.debug("computeUserEmbedding skipped: no events for user [{}]", username);
+            log.debug("computeUserEmbedding skipped: no events for user [{}]", userId);
             return;
         }
 
@@ -99,7 +91,7 @@ public class UserEmbeddingService {
         }
 
         if (weightedSum == null || totalWeight == 0) {
-            log.debug("computeUserEmbedding skipped: no usable movie embeddings for user [{}]", username);
+            log.debug("computeUserEmbedding skipped: no usable movie embeddings for user [{}]", userId);
             return;
         }
 
@@ -108,9 +100,9 @@ public class UserEmbeddingService {
             userEmbedding.add(val / totalWeight);
         }
 
-        saveUserProfile(username, userEmbedding);
+        saveUserProfile(userId, userEmbedding, moviesUsed);
 
-        log.info("Computed user embedding for [{}]: moviesUsed={}, totalWeight={}", username, moviesUsed, totalWeight);
+        log.info("Computed user embedding for [{}]: moviesUsed={}, totalWeight={}", userId, moviesUsed, totalWeight);
     }
 
     private double getEmbeddingWeight(UserEvent event) {
@@ -132,13 +124,14 @@ public class UserEmbeddingService {
         return Math.exp(-LAMBDA * daysSinceEvent);
     }
 
-    private void saveUserProfile(String username, List<Double> embedding) {
+    private void saveUserProfile(String userId, List<Double> embedding, int sourceEventCount) {
         mongoTemplate.upsert(
-                Query.query(Criteria.where("_id").is(username)),
+                Query.query(Criteria.where("_id").is(userId)),
                 new Update()
-                        .set("username", username)
+                        .set("userId", userId)
                         .set("profileEmbedding", embedding)
-                        .set("lastComputedAt", Instant.now().toString()),
+                        .set("lastComputedAt", Instant.now().toString())
+                        .set("sourceEventCount", sourceEventCount),
                 Document.class,
                 "user_profiles"
         );

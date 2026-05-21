@@ -32,6 +32,10 @@ public enum EventType {
     }
 
     public static EventType fromValue(String value) {
+        if ("rate".equals(value)) {
+            return RATING;
+        }
+
         return Arrays.stream(values())
                 .filter(t -> t.value.equals(value))
                 .findFirst()
