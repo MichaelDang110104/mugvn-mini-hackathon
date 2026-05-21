@@ -15,8 +15,6 @@ import java.util.concurrent.Executor;
 @Component
 public class FetchMoviesByUserProfileVectorTask extends Task<RecommendationContext> {
 
-    private static final String CANDIDATE_GROUP = "user_profile_vector";
-
     private final VectorSearchService vectorSearchService;
     private final Executor ioExecutor;
 
@@ -30,7 +28,7 @@ public class FetchMoviesByUserProfileVectorTask extends Task<RecommendationConte
 
     @Override
     public String name() {
-        return CANDIDATE_GROUP;
+        return "user_profile_vector";
     }
 
     @Override
@@ -44,9 +42,9 @@ public class FetchMoviesByUserProfileVectorTask extends Task<RecommendationConte
             int limit = ctx.getLimit() > 0 ? ctx.getLimit() : 10;
             List<ScoredMovie> candidates = vectorSearchService.searchByEmbedding(ctx.getUserProfileEmbedding(), limit)
                     .stream()
-                    .map(result -> ObjectUtils.toScoredMovie(result, name()))
+                    .map(result -> ObjectUtils.toScoredMovie(result, "user_profile_vector"))
                     .toList();
-            ctx.putCandidateGroup(CANDIDATE_GROUP, candidates);
+            ctx.addCandidates(candidates);
             return ctx;
         }, ioExecutor);
     }

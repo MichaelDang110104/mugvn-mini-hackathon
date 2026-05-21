@@ -49,6 +49,13 @@ public class RecommendationContext extends TaskContext {
         return this.searchQuery != null && !this.searchQuery.isBlank();
     }
 
+    public synchronized void addCandidates(List<ScoredMovie> movies) {
+        if (candidates == null) {
+            candidates = new ArrayList<>();
+        }
+        candidates.addAll(movies);
+    }
+
     public void putCandidateGroup(String key, List<ScoredMovie> movies) {
         set("candidateGroup:" + key, movies);
     }
