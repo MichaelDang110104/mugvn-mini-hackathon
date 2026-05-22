@@ -23,4 +23,5 @@ public class RecommendationProfile {
     private List<Double> profileEmbedding;
     private String lastComputedAt;
     private Integer sourceEventCount;
+    private List<String> topGenres;
 }

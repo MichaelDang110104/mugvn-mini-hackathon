@@ -4,4 +4,5 @@ public enum EngineMode {
     TRENDING,
     SEARCH,
     SIMILAR_TO_MOVIE,
+    GENRE,
 }

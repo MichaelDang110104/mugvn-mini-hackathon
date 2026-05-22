@@ -30,8 +30,11 @@ public class LoadRecommendationProfileTask extends Task<RecommendationContext> {
     @Override
     public CompletableFuture<RecommendationContext> execute(RecommendationContext ctx) {
         RecommendationProfile profile = recommendationProfileRepository.findById(ctx.getUserId()).orElse(null);
-        if (profile != null && profile.getProfileEmbedding() != null && !profile.getProfileEmbedding().isEmpty()) {
-            ctx.setUserProfileEmbedding(profile.getProfileEmbedding());
+        if (profile != null) {
+            ctx.setProfile(profile);
+            if (profile.getProfileEmbedding() != null && !profile.getProfileEmbedding().isEmpty()) {
+                ctx.setUserProfileEmbedding(profile.getProfileEmbedding());
+            }
         }
         return CompletableFuture.completedFuture(ctx);
     }

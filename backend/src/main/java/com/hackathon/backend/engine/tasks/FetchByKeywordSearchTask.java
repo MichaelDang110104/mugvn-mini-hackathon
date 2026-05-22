@@ -3,6 +3,7 @@ package com.hackathon.backend.engine.tasks;
 import com.hackathon.backend.commons.pipeline.Task;
 import com.hackathon.backend.engine.entities.RecommendationContext;
 import com.hackathon.backend.engine.entities.ScoredMovie;
+import com.hackathon.backend.engine.utils.ObjectUtils;
 import com.hackathon.backend.models.EmbeddedMovie;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.data.mongodb.core.MongoTemplate;
@@ -16,13 +17,13 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
 
 @Component
-public class KeywordSearchTask extends Task<RecommendationContext> {
+public class FetchByKeywordSearchTask extends Task<RecommendationContext> {
 
     private final MongoTemplate mongoTemplate;
     private final Executor ioExecutor;
 
-    public KeywordSearchTask(MongoTemplate mongoTemplate,
-                             @Qualifier("ioExecutor") Executor ioExecutor) {
+    public FetchByKeywordSearchTask(MongoTemplate mongoTemplate,
+                                    @Qualifier("ioExecutor") Executor ioExecutor) {
         this.mongoTemplate = mongoTemplate;
         this.ioExecutor = ioExecutor;
     }
@@ -34,7 +35,7 @@ public class KeywordSearchTask extends Task<RecommendationContext> {
 
     @Override
     public boolean shouldSkip(RecommendationContext ctx) {
-        return !ctx.hasQuery();
+        return ctx.hasQuery();
     }
 
     @Override
@@ -52,14 +53,7 @@ public class KeywordSearchTask extends Task<RecommendationContext> {
 
             List<ScoredMovie> candidates = new ArrayList<>(results.size());
             for (int i = 0; i < results.size(); i++) {
-                EmbeddedMovie movie = results.get(i);
-                candidates.add(ScoredMovie.builder()
-                        .movieId(movie.getId() != null ? movie.getId().toHexString() : null)
-                        .score(1.0 / (i + 1))
-                        .source("keyword_search")
-                        .genres(movie.getGenres())
-                        .releasedAt(movie.getReleased() != null ? movie.getReleased().toInstant() : null)
-                        .build());
+                candidates.add(ObjectUtils.toScoredMovie(results.get(i), "keyword_search", 1.0 / (i + 1)));
             }
 
             ctx.addCandidates(candidates);

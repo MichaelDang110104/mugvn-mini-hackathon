@@ -2,6 +2,7 @@ package com.hackathon.backend.engine.entities;
 
 import com.hackathon.backend.commons.pipeline.TaskContext;
 import com.hackathon.backend.models.Movie;
+import com.hackathon.backend.models.RecommendationProfile;
 import lombok.Builder;
 import lombok.EqualsAndHashCode;
 import lombok.Getter;
@@ -22,7 +23,9 @@ public class RecommendationContext extends TaskContext {
     private EngineMode mode;
 
     private String searchQuery;
+    private String genre;
     private List<Double> userProfileEmbedding;
+    private RecommendationProfile profile;
     private int limit;
 
     List<ScoredMovie> candidates;
@@ -46,7 +49,7 @@ public class RecommendationContext extends TaskContext {
 
 
     public boolean hasQuery() {
-        return this.searchQuery != null && !this.searchQuery.isBlank();
+        return this.searchQuery == null || this.searchQuery.isBlank();
     }
 
     public synchronized void addCandidates(List<ScoredMovie> movies) {

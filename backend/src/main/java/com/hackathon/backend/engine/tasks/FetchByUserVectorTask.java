@@ -13,34 +13,36 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
 
 @Component
-public class SemanticSearchTask extends Task<RecommendationContext> {
+public class FetchByUserVectorTask extends Task<RecommendationContext> {
 
     private final VectorSearchService vectorSearchService;
     private final Executor ioExecutor;
 
-    public SemanticSearchTask(VectorSearchService vectorSearchService,
-                              @Qualifier("ioExecutor") Executor ioExecutor) {
+    public FetchByUserVectorTask(
+            VectorSearchService vectorSearchService,
+            @Qualifier("ioExecutor") Executor ioExecutor
+    ) {
         this.vectorSearchService = vectorSearchService;
         this.ioExecutor = ioExecutor;
     }
 
     @Override
     public String name() {
-        return "semantic_search";
+        return "user_profile_vector";
     }
 
     @Override
     public boolean shouldSkip(RecommendationContext ctx) {
-        return !ctx.hasQuery();
+        return ctx.getUserProfileEmbedding() == null || ctx.getUserProfileEmbedding().isEmpty();
     }
 
     @Override
     public CompletableFuture<RecommendationContext> execute(RecommendationContext ctx) {
         return CompletableFuture.supplyAsync(() -> {
             int limit = ctx.getLimit() > 0 ? ctx.getLimit() : 10;
-            List<ScoredMovie> candidates = vectorSearchService.searchByQueryText(ctx.getSearchQuery(), limit)
+            List<ScoredMovie> candidates = vectorSearchService.searchByEmbedding(ctx.getUserProfileEmbedding(), limit)
                     .stream()
-                    .map(r -> ObjectUtils.toScoredMovie(r, "semantic_search"))
+                    .map(result -> ObjectUtils.toScoredMovie(result, "user_profile_vector"))
                     .toList();
             ctx.addCandidates(candidates);
             return ctx;

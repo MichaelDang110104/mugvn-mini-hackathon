@@ -17,7 +17,10 @@ import org.springframework.stereotype.Service;
 
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 @Service
 @RequiredArgsConstructor
@@ -51,6 +54,7 @@ public class UserEmbeddingService {
         List<Double> weightedSum = null;
         double totalWeight = 0.0;
         int moviesUsed = 0;
+        Map<String, Double> genreWeights = new HashMap<>();
 
         Instant now = Instant.now();
 
@@ -88,6 +92,12 @@ public class UserEmbeddingService {
 
             totalWeight += effectiveWeight;
             moviesUsed++;
+
+            if (movie.getGenres() != null) {
+                for (String genre : movie.getGenres()) {
+                    genreWeights.merge(genre, effectiveWeight, Double::sum);
+                }
+            }
         }
 
         if (weightedSum == null || totalWeight == 0) {
@@ -100,7 +110,13 @@ public class UserEmbeddingService {
             userEmbedding.add(val / totalWeight);
         }
 
-        saveUserProfile(userId, userEmbedding, moviesUsed);
+        List<String> topGenres = genreWeights.entrySet().stream()
+                .sorted(Map.Entry.<String, Double>comparingByValue(Comparator.reverseOrder()))
+                .limit(5)
+                .map(Map.Entry::getKey)
+                .toList();
+
+        saveUserProfile(userId, userEmbedding, moviesUsed, topGenres);
 
         log.info("Computed user embedding for [{}]: moviesUsed={}, totalWeight={}", userId, moviesUsed, totalWeight);
     }
@@ -124,14 +140,15 @@ public class UserEmbeddingService {
         return Math.exp(-LAMBDA * daysSinceEvent);
     }
 
-    private void saveUserProfile(String userId, List<Double> embedding, int sourceEventCount) {
+    private void saveUserProfile(String userId, List<Double> embedding, int sourceEventCount, List<String> topGenres) {
         mongoTemplate.upsert(
                 Query.query(Criteria.where("_id").is(userId)),
                 new Update()
                         .set("userId", userId)
                         .set("profileEmbedding", embedding)
                         .set("lastComputedAt", Instant.now().toString())
-                        .set("sourceEventCount", sourceEventCount),
+                        .set("sourceEventCount", sourceEventCount)
+                        .set("topGenres", topGenres),
                 Document.class,
                 "user_profiles"
         );

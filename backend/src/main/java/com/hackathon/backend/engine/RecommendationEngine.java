@@ -3,12 +3,13 @@ package com.hackathon.backend.engine;
 import com.hackathon.backend.commons.pipeline.ParallelPipeline;
 import com.hackathon.backend.commons.pipeline.SequentialPipeline;
 import com.hackathon.backend.engine.entities.RecommendationContext;
+import com.hackathon.backend.engine.tasks.FetchByGenreTask;
 import com.hackathon.backend.engine.tasks.FetchMovieDetailsTask;
-import com.hackathon.backend.engine.tasks.FetchMoviesByUserProfileVectorTask;
-import com.hackathon.backend.engine.tasks.KeywordSearchTask;
+import com.hackathon.backend.engine.tasks.FetchByUserVectorTask;
+import com.hackathon.backend.engine.tasks.FetchByKeywordSearchTask;
 import com.hackathon.backend.engine.tasks.LoadRecommendationProfileTask;
 import com.hackathon.backend.engine.tasks.MovieReRankTask;
-import com.hackathon.backend.engine.tasks.SemanticSearchTask;
+import com.hackathon.backend.engine.tasks.FetchBySemanticSearchTask;
 import com.hackathon.backend.models.Movie;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
@@ -20,9 +21,10 @@ import java.util.concurrent.CompletableFuture;
 @RequiredArgsConstructor
 public class RecommendationEngine {
 
-    private final SemanticSearchTask semanticSearchTask;
-    private final KeywordSearchTask keywordSearchTask;
-    private final FetchMoviesByUserProfileVectorTask fetchMoviesByUserProfileVectorTask;
+    private final FetchBySemanticSearchTask fetchBySemanticSearchTask;
+    private final FetchByKeywordSearchTask fetchByKeywordSearchTask;
+    private final FetchByUserVectorTask fetchByUserVectorTask;
+    private final FetchByGenreTask fetchByGenreTask;
     private final MovieReRankTask movieReRankTask;
     private final FetchMovieDetailsTask fetchMovieDetailsTask;
     private final LoadRecommendationProfileTask loadRecommendationProfileTask;
@@ -45,9 +47,10 @@ public class RecommendationEngine {
 
     public ParallelPipeline<RecommendationContext> fetchPipeLine() {
         return new ParallelPipeline<RecommendationContext>()
-                .add(semanticSearchTask)
-                .add(keywordSearchTask)
-                .add(fetchMoviesByUserProfileVectorTask);
+                .add(fetchBySemanticSearchTask)
+                .add(fetchByKeywordSearchTask)
+                .add(fetchByUserVectorTask)
+                .add(fetchByGenreTask);
     }
 
     public SequentialPipeline<RecommendationContext> deobietdatten() {
