@@ -1,6 +1,7 @@
 package com.hackathon.backend.controllers;
 
 import com.hackathon.backend.dto.ErrorResponse;
+import com.hackathon.backend.dto.BatchEventResponse;
 import com.hackathon.backend.dto.EventRequest;
 import com.hackathon.backend.dto.EventResponse;
 import com.hackathon.backend.enums.EventType;
@@ -29,39 +30,60 @@ public class EventController {
 
     @PostMapping
     public ResponseEntity<?> postEvent(@RequestBody EventRequest request) {
+        ErrorResponse validationError = validate(request);
+        if (validationError != null) {
+            return ResponseEntity.badRequest().body(validationError);
+        }
+
+        publish(request);
+
+        return ResponseEntity.accepted().body(new EventResponse("ack"));
+    }
+
+    @PostMapping("/batch")
+    public ResponseEntity<BatchEventResponse> postEventsBatch(@RequestBody List<EventRequest> requests) {
+        int accepted = 0;
+        int failed = 0;
+
+        for (EventRequest request : requests) {
+            if (validate(request) != null) {
+                failed++;
+                continue;
+            }
+
+            publish(request);
+            accepted++;
+        }
+
+        return ResponseEntity.accepted().body(new BatchEventResponse(accepted, failed));
+    }
+
+    private ErrorResponse validate(EventRequest request) {
         if (request.getSessionId() == null || request.getSessionId().isBlank()) {
-            return ResponseEntity.badRequest()
-                    .body(ErrorResponse.validationError("sessionId is required",
-                            List.of(new ErrorResponse.FieldError("sessionId", "required"))));
+            return ErrorResponse.validationError("sessionId is required",
+                    List.of(new ErrorResponse.FieldError("sessionId", "required")));
         }
         if (request.getEventId() == null || request.getEventId().isBlank()) {
-            return ResponseEntity.badRequest()
-                    .body(ErrorResponse.validationError("eventId is required",
-                            List.of(new ErrorResponse.FieldError("eventId", "required"))));
+            return ErrorResponse.validationError("eventId is required",
+                    List.of(new ErrorResponse.FieldError("eventId", "required")));
         }
         if (request.getEventType() == null || request.getEventType().isBlank()) {
-            return ResponseEntity.badRequest()
-                    .body(ErrorResponse.validationError("eventType is required",
-                            List.of(new ErrorResponse.FieldError("eventType", "required"))));
+            return ErrorResponse.validationError("eventType is required",
+                    List.of(new ErrorResponse.FieldError("eventType", "required")));
         }
 
         try {
             EventType.fromValue(request.getEventType());
+            return null;
         } catch (IllegalArgumentException e) {
-            return ResponseEntity.badRequest()
-                    .body(ErrorResponse.validationError("Unknown eventType: " + request.getEventType(),
-                            List.of(new ErrorResponse.FieldError("eventType", "invalid"))));
+            return ErrorResponse.validationError("Unknown eventType: " + request.getEventType(),
+                    List.of(new ErrorResponse.FieldError("eventType", "invalid")));
         }
+    }
 
+    private void publish(EventRequest request) {
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();
         if (auth != null && auth.getPrincipal() instanceof UserDetails userDetails) {
-            // Because we don't have direct access to ObjectId here, and JWT might hold it in claims.
-            // But we stored email in userDetails.getUsername(). 
-            // Better to let JwtAuthenticationFilter or EventProcessingListener resolve it.
-            // Actually, JwtAuthenticationFilter sets UserDetails.
-            // If the user wants real userId, we can set it to email or fetch it.
-            // We can just rely on the token subject (email) as a proxy, or lookup.
-            // For now, pass the email down and let listener handle it, or lookup here.
             request.setUserId(userDetails.getUsername());
         }
 
@@ -69,7 +91,5 @@ public class EventController {
                 request.getEventId(), request.getEventType(), request.getSessionId());
 
         eventPublisher.publishEvent(new UserEventReceivedEvent(this, request));
-
-        return ResponseEntity.accepted().body(new EventResponse("ack"));
     }
 }

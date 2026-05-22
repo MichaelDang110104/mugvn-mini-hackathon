@@ -15,3 +15,6 @@ spring:
         initialize-schema: false
   mongodb:
     uri: mongodb+srv://michaeldang0104_db_user:m9tiK5rbFOYbMuGN@mongodb-hackathon.yxj8jm9.mongodb.net/sample_mflix?appName=MongoDB-Hackathon
+
+server:
+  port: 9000

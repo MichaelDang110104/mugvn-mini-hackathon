@@ -228,7 +228,7 @@ function setupAutoFlush(): void {
 function setupPageUnload(): void {
     if (typeof window === 'undefined') return
 
-  const apiBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8080'
+  const apiBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:9000'
 
     window.addEventListener('beforeunload', () => {
         if (globalState.queue.length > 0) {

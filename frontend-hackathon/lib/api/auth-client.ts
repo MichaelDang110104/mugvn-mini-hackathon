@@ -2,7 +2,7 @@ import { getAuthToken } from '../session/session-store'
 
 export async function loginWithBackend(email: string, password: string = 'any') {
   try {
-    const response = await fetch('http://localhost:8080/api/auth/login', {
+    const response = await fetch('http://localhost:9000/api/auth/login', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json'
