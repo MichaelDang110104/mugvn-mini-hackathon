@@ -90,8 +90,8 @@ public class RecommendationService {
             return buildColdStartRecommendations(limit);
         }
 
-        var results = vectorSearchService.findSimilarMovies(
-                seedMovie.getFullplot(), seedMovieId, limit + 5);
+        var results = vectorSearchService.searchByEmbedding(
+                seedMovie.getPlotEmbedding(), limit + 5);
 
         // Deduplicate and exclude already-interacted movies
         List<SearchItem> items = results.stream()
