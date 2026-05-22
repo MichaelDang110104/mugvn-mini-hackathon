@@ -17,6 +17,9 @@ import java.util.concurrent.Executor;
 @Component
 public class FetchByUserVectorTask extends RecommendationTaskBase {
 
+    private static final double USER_VECTOR_MIN_SCORE = 0.75;
+    private static final int USER_VECTOR_FETCH_LIMIT = 100;
+
     private final VectorSearchService vectorSearchService;
     private final Executor ioExecutor;
 
@@ -44,10 +47,15 @@ public class FetchByUserVectorTask extends RecommendationTaskBase {
     @Override
     public CompletableFuture<RecommendationContext> execute(RecommendationContext ctx) {
         return CompletableFuture.supplyAsync(() -> {
-            int limit = ctx.getLimit() > 0 ? ctx.getLimit() : 10;
-            List<ScoredMovie> candidates = vectorSearchService.searchByEmbedding(ctx.getUserProfileEmbedding(), limit)
+            List<String> excludedMovieIds = ctx.getExcludedMovieIds() != null ? ctx.getExcludedMovieIds() : List.of();
+
+            List<ScoredMovie> candidates = vectorSearchService.searchByEmbedding(ctx.getUserProfileEmbedding(), USER_VECTOR_FETCH_LIMIT)
                     .stream()
+                    .filter(result -> result.getVectorSearchScore() >= USER_VECTOR_MIN_SCORE)
+                    .filter(result -> result.getMovie() != null && result.getMovie().getId() != null)
+                    .filter(result -> !excludedMovieIds.contains(result.getMovie().getId().toHexString()))
                     .map(result -> ObjectUtils.toScoredMovie(result, "user_profile_vector"))
+                    .limit(ctx.getLimit() > 0 ? ctx.getLimit() : 10)
                     .toList();
             ctx.addCandidates(candidates);
             return ctx;
