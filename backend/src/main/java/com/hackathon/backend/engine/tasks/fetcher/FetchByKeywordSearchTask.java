@@ -1,8 +1,9 @@
-package com.hackathon.backend.engine.tasks;
+package com.hackathon.backend.engine.tasks.fetcher;
 
-import com.hackathon.backend.commons.pipeline.Task;
+import com.hackathon.backend.engine.entities.EngineMode;
 import com.hackathon.backend.engine.entities.RecommendationContext;
 import com.hackathon.backend.engine.entities.ScoredMovie;
+import com.hackathon.backend.engine.tasks.RecommendationTaskBase;
 import com.hackathon.backend.engine.utils.ObjectUtils;
 import com.hackathon.backend.models.EmbeddedMovie;
 import org.springframework.beans.factory.annotation.Qualifier;
@@ -13,11 +14,12 @@ import org.springframework.stereotype.Component;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
 
 @Component
-public class FetchByKeywordSearchTask extends Task<RecommendationContext> {
+public class FetchByKeywordSearchTask extends RecommendationTaskBase {
 
     private final MongoTemplate mongoTemplate;
     private final Executor ioExecutor;
@@ -34,8 +36,13 @@ public class FetchByKeywordSearchTask extends Task<RecommendationContext> {
     }
 
     @Override
+    protected Set<EngineMode> supportedModes() {
+        return Set.of(EngineMode.SEARCH);
+    }
+
+    @Override
     public boolean shouldSkip(RecommendationContext ctx) {
-        return ctx.hasQuery();
+        return super.shouldSkip(ctx) || ctx.hasQuery();
     }
 
     @Override

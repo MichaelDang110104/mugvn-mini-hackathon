@@ -24,6 +24,7 @@ public class RecommendationContext extends TaskContext {
 
     private String searchQuery;
     private String genre;
+    private String movieId;
     private List<Double> userProfileEmbedding;
     private RecommendationProfile profile;
     private int limit;
@@ -37,6 +38,26 @@ public class RecommendationContext extends TaskContext {
 
     public static RecommendationContext forSearch(String userId, String searchQuery, int limit) {
         return base(userId).searchQuery(searchQuery).limit(limit).mode(EngineMode.SEARCH).build();
+    }
+
+    public static RecommendationContext forTrending(String userId, int limit) {
+        return base(userId).limit(limit).mode(EngineMode.TRENDING).build();
+    }
+
+    public static RecommendationContext forGenre(String userId, int limit) {
+        return base(userId).limit(limit).mode(EngineMode.GENRE).build();
+    }
+
+    public static RecommendationContext forGenre(String userId, String genre, int limit) {
+        return base(userId).genre(genre).limit(limit).mode(EngineMode.GENRE).build();
+    }
+
+    public static RecommendationContext forSimilarToMovie(String userId, String movieId, int limit) {
+        return base(userId).movieId(movieId).limit(limit).mode(EngineMode.SIMILAR_TO_MOVIE).build();
+    }
+
+    public static RecommendationContext forRecentWatch(String userId, int limit) {
+        return base(userId).limit(limit).mode(EngineMode.RECENT_WATCH).build();
     }
 
     private static RecommendationContext.RecommendationContextBuilder base(

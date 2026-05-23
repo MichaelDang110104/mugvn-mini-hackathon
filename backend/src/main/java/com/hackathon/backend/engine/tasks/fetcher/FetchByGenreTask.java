@@ -1,9 +1,9 @@
-package com.hackathon.backend.engine.tasks;
+package com.hackathon.backend.engine.tasks.fetcher;
 
-import com.hackathon.backend.commons.pipeline.Task;
 import com.hackathon.backend.engine.entities.EngineMode;
 import com.hackathon.backend.engine.entities.RecommendationContext;
 import com.hackathon.backend.engine.entities.ScoredMovie;
+import com.hackathon.backend.engine.tasks.RecommendationTaskBase;
 import com.hackathon.backend.engine.utils.ObjectUtils;
 import com.hackathon.backend.repositories.EmbeddedMovieRepository;
 import org.springframework.beans.factory.annotation.Qualifier;
@@ -11,11 +11,12 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Component;
 
 import java.util.List;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
 
 @Component
-public class FetchByGenreTask extends Task<RecommendationContext> {
+public class FetchByGenreTask extends RecommendationTaskBase {
 
     private final EmbeddedMovieRepository embeddedMovieRepository;
     private final Executor ioExecutor;
@@ -32,8 +33,13 @@ public class FetchByGenreTask extends Task<RecommendationContext> {
     }
 
     @Override
+    protected Set<EngineMode> supportedModes() {
+        return Set.of(EngineMode.GENRE);
+    }
+
+    @Override
     public boolean shouldSkip(RecommendationContext ctx) {
-        if (ctx.getMode() != EngineMode.GENRE) return true;
+        if (super.shouldSkip(ctx)) return true;
         boolean hasExplicitGenre = ctx.getGenre() != null && !ctx.getGenre().isBlank();
         boolean hasTopGenres = ctx.getProfile() != null
                 && ctx.getProfile().getTopGenres() != null
@@ -59,5 +65,4 @@ public class FetchByGenreTask extends Task<RecommendationContext> {
             return ctx;
         }, ioExecutor);
     }
-
 }

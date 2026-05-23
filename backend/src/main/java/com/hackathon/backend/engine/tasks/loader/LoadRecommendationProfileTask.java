@@ -1,7 +1,7 @@
-package com.hackathon.backend.engine.tasks;
+package com.hackathon.backend.engine.tasks.loader;
 
-import com.hackathon.backend.commons.pipeline.Task;
 import com.hackathon.backend.engine.entities.RecommendationContext;
+import com.hackathon.backend.engine.tasks.RecommendationTaskBase;
 import com.hackathon.backend.models.RecommendationProfile;
 import com.hackathon.backend.repositories.RecommendationProfileRepository;
 import org.springframework.stereotype.Component;
@@ -9,7 +9,7 @@ import org.springframework.stereotype.Component;
 import java.util.concurrent.CompletableFuture;
 
 @Component
-public class LoadRecommendationProfileTask extends Task<RecommendationContext> {
+public class LoadRecommendationProfileTask extends RecommendationTaskBase {
 
     private final RecommendationProfileRepository recommendationProfileRepository;
 
@@ -24,7 +24,7 @@ public class LoadRecommendationProfileTask extends Task<RecommendationContext> {
 
     @Override
     public boolean shouldSkip(RecommendationContext ctx) {
-        return ctx.getUserId() == null || ctx.getUserId().isBlank();
+        return super.shouldSkip(ctx) || ctx.getUserId() == null || ctx.getUserId().isBlank();
     }
 
     @Override

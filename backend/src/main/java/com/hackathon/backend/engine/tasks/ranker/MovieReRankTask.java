@@ -1,9 +1,9 @@
-package com.hackathon.backend.engine.tasks;
+package com.hackathon.backend.engine.tasks.ranker;
 
-import com.hackathon.backend.commons.pipeline.Task;
 import com.hackathon.backend.engine.entities.RecommendationContext;
 import com.hackathon.backend.engine.entities.ScoredMovie;
 import com.hackathon.backend.engine.strategy.ScoringStrategyRegistry;
+import com.hackathon.backend.engine.tasks.RecommendationTaskBase;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Component;
 
@@ -12,7 +12,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
 
 @Component
-public class MovieReRankTask extends Task<RecommendationContext> {
+public class MovieReRankTask extends RecommendationTaskBase {
 
     private final ScoringStrategyRegistry registry;
     private final Executor cpuExecutor;
@@ -30,7 +30,7 @@ public class MovieReRankTask extends Task<RecommendationContext> {
 
     @Override
     public boolean shouldSkip(RecommendationContext ctx) {
-        return ctx.getCandidates() == null || ctx.getCandidates().isEmpty();
+        return super.shouldSkip(ctx) || ctx.getCandidates() == null || ctx.getCandidates().isEmpty();
     }
 
     @Override

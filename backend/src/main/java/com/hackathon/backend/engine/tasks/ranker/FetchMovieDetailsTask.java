@@ -1,7 +1,7 @@
-package com.hackathon.backend.engine.tasks;
+package com.hackathon.backend.engine.tasks.ranker;
 
-import com.hackathon.backend.commons.pipeline.Task;
 import com.hackathon.backend.engine.entities.RecommendationContext;
+import com.hackathon.backend.engine.tasks.RecommendationTaskBase;
 import com.hackathon.backend.models.Movie;
 import com.hackathon.backend.repositories.MovieRepository;
 import org.bson.types.ObjectId;
@@ -14,7 +14,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
 
 @Component
-public class FetchMovieDetailsTask extends Task<RecommendationContext> {
+public class FetchMovieDetailsTask extends RecommendationTaskBase {
 
     private final MovieRepository movieRepository;
     private final Executor ioExecutor;
@@ -32,7 +32,7 @@ public class FetchMovieDetailsTask extends Task<RecommendationContext> {
 
     @Override
     public boolean shouldSkip(RecommendationContext ctx) {
-        return ctx.getRankedCandidates() == null || ctx.getRankedCandidates().isEmpty();
+        return super.shouldSkip(ctx) || ctx.getRankedCandidates() == null || ctx.getRankedCandidates().isEmpty();
     }
 
     @Override
