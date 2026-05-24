@@ -5,13 +5,12 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+import java.util.List;
+
 @Data
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-public class AuthResponse {
-    private String token;
-    private String userId;
-    private String email;
-    private boolean onboardingComplete;
+public class OnboardingOptionsResponse {
+    private List<String> genres;
 }

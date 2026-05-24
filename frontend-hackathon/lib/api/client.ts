@@ -16,9 +16,13 @@ import type {
     BackendEventResponse,
     BackendOnboardingRequest,
     BackendOnboardingResponse,
+    BackendOnboardingOptionsResponse,
+    BackendOnboardingMovieOptionsResponse,
+    OnboardingMovieOption,
     SearchItem,
     MovieDetail,
 } from './types'
+import { getAuthToken } from '@/lib/session/session-store'
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:9000'
 
@@ -27,6 +31,10 @@ const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:9
 function buildHeaders(sessionId?: string): Record<string, string> {
     const headers: Record<string, string> = {
         'Content-Type': 'application/json',
+    }
+    const authToken = getAuthToken()
+    if (authToken) {
+        headers['Authorization'] = `Bearer ${authToken}`
     }
     if (sessionId) {
         headers['X-Session-Id'] = sessionId
@@ -121,6 +129,17 @@ export interface EventResponse {
     accepted: boolean
 }
 
+export interface OnboardingOptionsResponse {
+    genres: string[]
+}
+
+export interface FetchOnboardingMovieOptionsInput {
+    sessionId: string
+    query?: string
+    genres?: string[]
+    limit?: number
+}
+
 // ─── Input interfaces ───────────────────────────────────────────────────
 
 export interface FetchRecommendationsInput {
@@ -169,6 +188,43 @@ export async function submitOnboarding(input: BackendOnboardingRequest): Promise
     }
 
     return response.json()
+}
+
+export async function fetchOnboardingOptions(sessionId: string): Promise<OnboardingOptionsResponse> {
+    const response = await fetch(`${API_BASE_URL}/api/onboarding/options`, {
+        method: 'GET',
+        headers: buildHeaders(sessionId),
+    })
+
+    captureSessionFromResponse(response)
+
+    if (!response.ok) {
+        throw new Error(`Onboarding options request failed with status ${response.status}`)
+    }
+
+    const data: BackendOnboardingOptionsResponse = await response.json()
+    return { genres: data.genres || [] }
+}
+
+export async function fetchOnboardingMovieOptions(input: FetchOnboardingMovieOptionsInput): Promise<OnboardingMovieOption[]> {
+    const params = new URLSearchParams()
+    if (input.query?.trim()) params.set('query', input.query.trim())
+    if (input.limit) params.set('limit', String(input.limit))
+    input.genres?.forEach(genre => params.append('genres', genre))
+
+    const response = await fetch(`${API_BASE_URL}/api/onboarding/movies?${params}`, {
+        method: 'GET',
+        headers: buildHeaders(input.sessionId),
+    })
+
+    captureSessionFromResponse(response)
+
+    if (!response.ok) {
+        throw new Error(`Onboarding movies request failed with status ${response.status}`)
+    }
+
+    const data: BackendOnboardingMovieOptionsResponse = await response.json()
+    return data.movies || []
 }
 
 /**

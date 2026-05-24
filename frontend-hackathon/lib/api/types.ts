@@ -82,7 +82,7 @@ export interface BackendOnboardingRequest {
   sessionId: string
   selectedGenres: string[]
   selectedThemes: string[]
-  favoriteTitles: string[]
+  favoriteMovies: FavoriteMovieSelection[]
   avoidedGenres: string[]
   avoidedThemes: string[]
   preferredLanguages: string[]
@@ -95,6 +95,27 @@ export interface BackendOnboardingResponse {
   sessionId: string
   completed: boolean
   profileVersion: number
+}
+
+export interface FavoriteMovieSelection {
+  movieId: string
+  title: string
+}
+
+export interface BackendOnboardingOptionsResponse {
+  genres: string[]
+}
+
+export interface OnboardingMovieOption {
+  movieId: string
+  title: string
+  genres: string[]
+  posterUrl: string | null
+  year: number | null
+}
+
+export interface BackendOnboardingMovieOptionsResponse {
+  movies: OnboardingMovieOption[]
 }
 
 

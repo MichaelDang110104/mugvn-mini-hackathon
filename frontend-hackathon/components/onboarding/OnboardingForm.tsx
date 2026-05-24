@@ -1,17 +1,33 @@
 'use client'
 
-import { FavoriteTitlesInput } from '@/components/onboarding/FavoriteTitlesInput'
+import { FavoriteMoviesPicker } from '@/components/onboarding/FavoriteMoviesPicker'
 import { MultiSelectChips } from '@/components/onboarding/MultiSelectChips'
 import { PreferenceSelectors } from '@/components/onboarding/PreferenceSelectors'
 import {
-  GENRE_OPTIONS,
   LANGUAGE_OPTIONS,
   THEME_OPTIONS,
 } from '@/features/onboarding/constants'
 import { useOnboardingForm } from '@/features/onboarding/useOnboardingForm'
 
 export function OnboardingForm() {
-  const { values, setValues, canSubmit, submit, submitting, error } = useOnboardingForm()
+  const {
+    values,
+    setValues,
+    canSubmit,
+    submit,
+    submitting,
+    error,
+    genreOptions,
+    loadingOptions,
+    movieOptions,
+    movieSearchQuery,
+    setMovieSearchQuery,
+    loadingMovies,
+    movieError,
+    canBrowseMovies,
+    addFavoriteMovie,
+    removeFavoriteMovie,
+  } = useOnboardingForm()
 
   return (
     <main className="min-h-screen bg-black px-4 py-10 text-white">
@@ -25,11 +41,13 @@ export function OnboardingForm() {
 
         <MultiSelectChips
           label="Pick exactly 3 favorite genres"
-          options={GENRE_OPTIONS}
+          options={genreOptions}
           selected={values.selectedGenres}
           max={3}
           onChange={selectedGenres => setValues(current => ({ ...current, selectedGenres }))}
         />
+
+        {loadingOptions ? <p className="text-sm text-gray-400">Loading genres...</p> : null}
 
         <MultiSelectChips
           label="Pick 3 to 5 moods or themes"
@@ -39,14 +57,21 @@ export function OnboardingForm() {
           onChange={selectedThemes => setValues(current => ({ ...current, selectedThemes }))}
         />
 
-        <FavoriteTitlesInput
-          values={values.favoriteTitles}
-          onChange={favoriteTitles => setValues(current => ({ ...current, favoriteTitles }))}
+        <FavoriteMoviesPicker
+          searchQuery={movieSearchQuery}
+          onSearchQueryChange={setMovieSearchQuery}
+          selectedMovies={values.favoriteMovies}
+          options={movieOptions}
+          loading={loadingMovies}
+          error={movieError}
+          canSearch={canBrowseMovies}
+          onAddMovie={addFavoriteMovie}
+          onRemoveMovie={removeFavoriteMovie}
         />
 
         <MultiSelectChips
           label="Pick genres to avoid"
-          options={GENRE_OPTIONS}
+          options={genreOptions}
           selected={values.avoidedGenres}
           max={3}
           onChange={avoidedGenres => setValues(current => ({ ...current, avoidedGenres }))}

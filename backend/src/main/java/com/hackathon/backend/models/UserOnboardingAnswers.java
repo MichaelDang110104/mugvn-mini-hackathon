@@ -22,6 +22,7 @@ public class UserOnboardingAnswers {
     private String sessionId;
     private List<String> selectedGenres;
     private List<String> selectedThemes;
+    private List<String> favoriteMovieIds;
     private List<String> favoriteTitles;
     private List<String> avoidedGenres;
     private List<String> avoidedThemes;

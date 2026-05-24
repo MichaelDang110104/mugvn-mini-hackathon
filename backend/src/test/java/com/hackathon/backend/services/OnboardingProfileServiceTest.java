@@ -1,6 +1,7 @@
 package com.hackathon.backend.services;
 
 import com.hackathon.backend.dto.OnboardingRequest;
+import com.hackathon.backend.dto.OnboardingRequest.FavoriteMovieSelection;
 import com.hackathon.backend.models.RecommendationProfile;
 import org.junit.jupiter.api.Test;
 
@@ -16,7 +17,9 @@ class OnboardingProfileServiceTest {
                 .sessionId("session-1")
                 .selectedGenres(List.of("Sci-Fi", "Drama", "Thriller"))
                 .selectedThemes(List.of("emotional", "mind-bending", "space"))
-                .favoriteTitles(List.of("Interstellar", "Arrival"))
+                .favoriteMovies(List.of(
+                        FavoriteMovieSelection.builder().movieId("movie-1").title("Interstellar").build(),
+                        FavoriteMovieSelection.builder().movieId("movie-2").title("Arrival").build()))
                 .avoidedThemes(List.of("gore"))
                 .preferredLanguages(List.of("English"))
                 .preferredEra("modern")

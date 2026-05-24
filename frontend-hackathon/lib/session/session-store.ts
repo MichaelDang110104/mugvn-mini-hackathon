@@ -73,6 +73,7 @@ export function clearSessionId(): void {
 
   try {
     localStorage.removeItem(SESSION_ID_KEY)
+    localStorage.removeItem(ONBOARDING_COMPLETE_KEY)
   } catch (error) {
     // localStorage not available
     console.warn('[v0] Failed to clear session ID from localStorage:', error)
@@ -120,6 +121,7 @@ export function clearAuthToken(): void {
   if (typeof window === 'undefined') return
   try {
     localStorage.removeItem(AUTH_TOKEN_KEY)
+    localStorage.removeItem(ONBOARDING_COMPLETE_KEY)
   } catch (error) {
     console.warn('[v0] Failed to clear auth token:', error)
   }

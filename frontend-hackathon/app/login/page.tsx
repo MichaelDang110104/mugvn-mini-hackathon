@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { loginWithBackend } from '@/lib/api/auth-client'
-import { setAuthToken, setSessionId } from '@/lib/session/session-store'
+import { setAuthToken, setOnboardingComplete, setSessionId } from '@/lib/session/session-store'
 
 export default function LoginPage() {
   const router = useRouter()
@@ -26,8 +26,9 @@ export default function LoginPage() {
       // Update the sessionId to be the authenticated userId! 
       // This maps all future mock events to the real user ID.
       setSessionId(data.userId)
+      setOnboardingComplete(Boolean(data.onboardingComplete))
       
-      router.push('/')
+      router.push(data.onboardingComplete ? '/home' : '/onboarding')
     } catch (err) {
       setError('Login failed. Please check your credentials.')
     } finally {

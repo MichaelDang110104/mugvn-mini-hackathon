@@ -1,6 +1,13 @@
 import { getAuthToken } from '../session/session-store'
 
-export async function loginWithBackend(email: string, password: string = 'any') {
+interface LoginResponse {
+  token: string
+  userId: string
+  email: string
+  onboardingComplete: boolean
+}
+
+export async function loginWithBackend(email: string, password: string = 'any'): Promise<LoginResponse> {
   try {
     const response = await fetch('http://localhost:9000/api/auth/login', {
       method: 'POST',
@@ -14,8 +21,8 @@ export async function loginWithBackend(email: string, password: string = 'any') 
       throw new Error('Login failed')
     }
 
-    const data = await response.json()
-    return data // { token, userId, email }
+    const data: LoginResponse = await response.json()
+    return data
   } catch (error) {
     console.error('Error logging in:', error)
     throw error

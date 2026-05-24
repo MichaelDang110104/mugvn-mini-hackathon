@@ -4,6 +4,7 @@ import com.hackathon.backend.dto.AuthRequest;
 import com.hackathon.backend.dto.AuthResponse;
 import com.hackathon.backend.models.MflixUser;
 import com.hackathon.backend.repositories.MflixUserRepository;
+import com.hackathon.backend.repositories.UserOnboardingAnswersRepository;
 import com.hackathon.backend.security.JwtUtil;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
@@ -21,6 +22,7 @@ public class AuthController {
     // Note: We bypass AuthenticationManager for hackathon mock data if the passwords in the DB 
     // aren't matched properly with BCrypt. We directly check user existence.
     private final MflixUserRepository userRepository;
+    private final UserOnboardingAnswersRepository userOnboardingAnswersRepository;
     private final JwtUtil jwtUtil;
     private final UserDetailsService userDetailsService;
 
@@ -36,11 +38,15 @@ public class AuthController {
         
         UserDetails userDetails = userDetailsService.loadUserByUsername(user.getEmail());
         String token = jwtUtil.generateToken(userDetails, user.getId().toHexString());
-        
+        boolean onboardingComplete = userOnboardingAnswersRepository
+                .findTopByUserIdOrderByCompletedAtDesc(user.getId().toHexString())
+                .isPresent();
+
         return ResponseEntity.ok(AuthResponse.builder()
                 .token(token)
                 .userId(user.getId().toHexString())
                 .email(user.getEmail())
+                .onboardingComplete(onboardingComplete)
                 .build());
     }
 }

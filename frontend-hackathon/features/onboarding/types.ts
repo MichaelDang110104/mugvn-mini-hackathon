@@ -1,7 +1,9 @@
+import type { FavoriteMovieSelection } from '@/lib/api/types'
+
 export interface OnboardingFormValues {
   selectedGenres: string[]
   selectedThemes: string[]
-  favoriteTitles: string[]
+  favoriteMovies: FavoriteMovieSelection[]
   avoidedGenres: string[]
   avoidedThemes: string[]
   preferredLanguages: string[]
