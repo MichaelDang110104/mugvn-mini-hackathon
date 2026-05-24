@@ -2,6 +2,7 @@ package com.hackathon.backend.engine.tasks;
 
 import com.hackathon.backend.dto.VectorSearchResult;
 import com.hackathon.backend.engine.entities.RecommendationContext;
+import com.hackathon.backend.engine.tasks.fetcher.FetchByUserVectorTask;
 import com.hackathon.backend.models.EmbeddedMovie;
 import com.hackathon.backend.services.VectorSearchService;
 import org.bson.types.ObjectId;

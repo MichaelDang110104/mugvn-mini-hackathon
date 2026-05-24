@@ -36,7 +36,7 @@ public class MovieStatsScheduler {
     private final MovieRepository movieRepository;
     private final TrendingScoreCalculator calculator;
 
-    @Scheduled(cron = "0 /5 * * * *")
+    @Scheduled(cron = "5 5 * * * *")
     public void buildMovieStats() {
         log.info("Starting movie stats rebuild");
         Instant cutoff7d = Instant.now().minus(7, ChronoUnit.DAYS);

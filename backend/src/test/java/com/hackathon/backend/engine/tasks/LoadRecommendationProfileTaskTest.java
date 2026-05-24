@@ -1,6 +1,7 @@
 package com.hackathon.backend.engine.tasks;
 
 import com.hackathon.backend.engine.entities.RecommendationContext;
+import com.hackathon.backend.engine.tasks.loader.LoadRecommendationProfileTask;
 import com.hackathon.backend.models.RecommendationProfile;
 import com.hackathon.backend.models.UserEvent;
 import com.hackathon.backend.repositories.RecommendationProfileRepository;

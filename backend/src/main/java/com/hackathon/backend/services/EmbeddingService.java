@@ -3,6 +3,7 @@ package com.hackathon.backend.services;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.embedding.EmbeddingModel;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
@@ -15,6 +16,7 @@ public class EmbeddingService {
 
     private final EmbeddingModel embeddingModel;
 
+    @Cacheable(value = "queries", key = "#text")
     public List<Double> embed(String text) {
         try {
             float[] embedding = embeddingModel.embed(text);

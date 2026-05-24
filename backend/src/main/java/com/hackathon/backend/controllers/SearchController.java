@@ -6,6 +6,7 @@ import com.hackathon.backend.dto.SearchResponse.MovieSummary;
 import com.hackathon.backend.dto.SearchResponse.SearchItem;
 import com.hackathon.backend.engine.RecommendationEngine;
 import com.hackathon.backend.engine.entities.RecommendationContext;
+import com.hackathon.backend.services.EmbeddingService;
 import com.hackathon.backend.services.MovieSearchService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
@@ -21,15 +22,16 @@ public class SearchController {
 
     private final MovieSearchService movieSearchService;
     private final RecommendationEngine recommendationEngine;
+    private final EmbeddingService embeddingService;
 
     @GetMapping("/search/movies")
     public ResponseEntity<SearchResponse> search(
-            @RequestParam(required = false) String q,
+            @RequestParam(required = false) String query,
             @RequestParam(required = false) Integer limit,
             @RequestParam(required = false) String sessionId,
             @RequestHeader(value = "X-Session-Id", required = false) String headerSessionId) {
 
-        SearchResponse response = movieSearchService.search(q, limit);
+        SearchResponse response = movieSearchService.search(query, limit);
         return ResponseEntity.ok(response);
     }
 

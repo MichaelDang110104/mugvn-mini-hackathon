@@ -14,7 +14,12 @@ spring:
         path-name: plot_embedding
         initialize-schema: false
   mongodb:
-    uri: mongodb+srv://michaeldang0104_db_user:m9tiK5rbFOYbMuGN@mongodb-hackathon.yxj8jm9.mongodb.net/sample_mflix?appName=MongoDB-Hackathon
-
+    uri: ${MONGO_URI}
+  data:
+    redis:
+      host: ${REDIS_HOST}
+      port: 6379
+  cache:
+    type: redis
 server:
   port: 9000
