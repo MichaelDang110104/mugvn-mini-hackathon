@@ -55,6 +55,45 @@ public class EmbeddingService {
         return sb.toString().trim();
     }
 
+    public String buildStarterProfileText(List<String> genres, List<String> themes, List<String> titles,
+            List<String> languages, String era, String pace, String freeText) {
+        StringBuilder sb = new StringBuilder();
+        if (genres != null && !genres.isEmpty()) {
+            sb.append("Preferred genres: ").append(String.join(", ", genres));
+        }
+        if (themes != null && !themes.isEmpty()) {
+            if (!sb.isEmpty())
+                sb.append(". ");
+            sb.append("Themes: ").append(String.join(", ", themes));
+        }
+        if (titles != null && !titles.isEmpty()) {
+            if (!sb.isEmpty())
+                sb.append(". ");
+            sb.append("Favorite movies: ").append(String.join(", ", titles));
+        }
+        if (languages != null && !languages.isEmpty()) {
+            if (!sb.isEmpty())
+                sb.append(". ");
+            sb.append("Languages: ").append(String.join(", ", languages));
+        }
+        if (era != null && !era.isBlank()) {
+            if (!sb.isEmpty())
+                sb.append(". ");
+            sb.append("Era: ").append(era);
+        }
+        if (pace != null && !pace.isBlank()) {
+            if (!sb.isEmpty())
+                sb.append(". ");
+            sb.append("Pace: ").append(pace);
+        }
+        if (freeText != null && !freeText.isBlank()) {
+            if (!sb.isEmpty())
+                sb.append(". ");
+            sb.append(freeText);
+        }
+        return sb.toString();
+    }
+
     private List<Double> toDoubleList(float[] floats) {
         List<Double> doubles = new ArrayList<>(floats.length);
         for (float f : floats) {

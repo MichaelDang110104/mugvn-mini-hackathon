@@ -14,6 +14,8 @@ import type {
     BackendRecommendationResponse,
     BackendEventRequest,
     BackendEventResponse,
+    BackendOnboardingRequest,
+    BackendOnboardingResponse,
     SearchItem,
     MovieDetail,
 } from './types'
@@ -153,7 +155,21 @@ export interface PostEventInput {
     timestamp: string
 }
 
-// ─── API functions ──────────────────────────────────────────────────────
+export async function submitOnboarding(input: BackendOnboardingRequest): Promise<BackendOnboardingResponse> {
+    const response = await fetch(`${API_BASE_URL}/api/onboarding`, {
+        method: 'POST',
+        headers: buildHeaders(input.sessionId),
+        body: JSON.stringify(input),
+    })
+
+    captureSessionFromResponse(response)
+
+    if (!response.ok) {
+        throw new Error(`Onboarding failed: ${response.status}`)
+    }
+
+    return response.json()
+}
 
 /**
  * GET /api/recommendations
@@ -178,13 +194,10 @@ export async function fetchRecommendations(input: FetchRecommendationsInput): Pr
 
     const data: BackendRecommendationResponse = await response.json()
 
-    // Transform flat items list into sections for the homepage UI
     const allMovies = data.items.map(searchItemToMovieItem)
-
     const sections: RecommendationSection[] = []
 
     if (allMovies.length > 0) {
-        // Primary recommendation section
         sections.push({
             id: 'recommended_for_you',
             title: 'Recommended For You',
@@ -192,7 +205,6 @@ export async function fetchRecommendations(input: FetchRecommendationsInput): Pr
             movies: allMovies.slice(0, 12),
         })
 
-        // If we have enough items, create additional sections
         if (allMovies.length > 12) {
             sections.push({
                 id: 'trending_now',
@@ -353,18 +365,21 @@ export async function postEvent(input: PostEventInput): Promise<EventResponse> {
 }
 
 /**
- * Batch post events via POST /api/events/batch
- * Falls back to individual POSTs if batch endpoint fails.
+ * Batch post events via POST /api/events/batch.
+ * Keeps the payload batched; on failure, the caller can re-queue and retry later.
  */
 export async function postEventsBatch(input: { sessionId: string; events: PostEventInput[] }): Promise<{ accepted: number; failed: number }> {
-    // Map frontend event types to backend event types
     const eventTypeMap: Record<string, string> = {
-        view: 'view', click: 'click', search: 'search',
-        watch_start: 'watch_start', like: 'like', save: 'save',
-        rating: 'rate', rate: 'rate',
+        view: 'view',
+        click: 'click',
+        search: 'search',
+        watch_start: 'watch_start',
+        like: 'like',
+        save: 'save',
+        rating: 'rate',
+        rate: 'rate',
     }
 
-    // Transform events to backend format
     const backendEvents = input.events.map(e => {
         const movieId = e.metadata?.movieId as string | undefined
         return {
@@ -374,7 +389,8 @@ export async function postEventsBatch(input: { sessionId: string; events: PostEv
             movieId: movieId || null,
             queryText: e.eventType === 'search' ? (e.eventValue || e.metadata?.query) : null,
             eventValue: (e.eventType === 'rating' || e.eventType === 'rate') && e.eventValue
-                ? parseInt(e.eventValue, 10) : null,
+                ? parseInt(e.eventValue, 10)
+                : null,
             metadata: { source: e.screen, component: e.component, ...e.metadata },
             timestamp: e.timestamp || new Date().toISOString(),
         }
@@ -388,33 +404,13 @@ export async function postEventsBatch(input: { sessionId: string; events: PostEv
         })
 
         if (!response.ok) {
-            console.warn('[api] Batch event post failed, falling back to individual')
-            // Fall back to individual posting
-            return fallbackIndividualPost(input)
+            console.warn('[api] Batch event post failed with status', response.status)
+            return { accepted: 0, failed: input.events.length }
         }
 
         return await response.json()
     } catch (error) {
-        console.warn('[api] Batch event post error, falling back:', error)
-        return fallbackIndividualPost(input)
+        console.warn('[api] Batch event post error:', error)
+        return { accepted: 0, failed: input.events.length }
     }
-}
-
-async function fallbackIndividualPost(input: { sessionId: string; events: PostEventInput[] }): Promise<{ accepted: number; failed: number }> {
-    let accepted = 0
-    let failed = 0
-
-    const results = await Promise.allSettled(
-        input.events.map(event => postEvent(event))
-    )
-
-    for (const result of results) {
-        if (result.status === 'fulfilled' && result.value.accepted) {
-            accepted++
-        } else {
-            failed++
-        }
-    }
-
-    return { accepted, failed }
 }

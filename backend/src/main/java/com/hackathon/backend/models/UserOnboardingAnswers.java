@@ -14,31 +14,21 @@ import java.util.List;
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-@Document(collection = "user_profiles")
-public class RecommendationProfile {
-
+@Document(collection = "user_onboarding_answers")
+public class UserOnboardingAnswers {
     @Id
     private String id;
-
     private String userId;
     private String sessionId;
-    private List<Double> profileEmbedding;
-    private String lastComputedAt;
-    private Integer sourceEventCount;
-    private List<String> topGenres;
-    private List<String> topThemes;
+    private List<String> selectedGenres;
+    private List<String> selectedThemes;
+    private List<String> favoriteTitles;
     private List<String> avoidedGenres;
     private List<String> avoidedThemes;
-    private List<String> favoriteTitles;
     private List<String> preferredLanguages;
     private String preferredEra;
     private String preferredPace;
-    private String profileSource;
-    private Double onboardingWeight;
-    private Double behaviorWeight;
-    private Integer strongPositiveEventCount;
-    private Integer pendingStrongPositiveEvents;
-    private Instant onboardingCompletedAt;
-    private Instant lastProfileRefreshAt;
-    private Long profileVersion;
+    private String freeTextTasteSummary;
+    private Instant completedAt;
+    private Long version;
 }

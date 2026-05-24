@@ -6,6 +6,7 @@
 
 const SESSION_ID_KEY = 'movie_app_session_id'
 const AUTH_TOKEN_KEY = 'movie_app_auth_token'
+const ONBOARDING_COMPLETE_KEY = 'movie_app_onboarding_complete'
 
 /**
  * Generate a unique session ID using crypto.randomUUID()
@@ -93,6 +94,25 @@ export function setAuthToken(token: string): void {
     localStorage.setItem(AUTH_TOKEN_KEY, token)
   } catch (error) {
     console.warn('[v0] Failed to set auth token:', error)
+  }
+}
+
+export function getOnboardingComplete(): boolean {
+  if (typeof window === 'undefined') return false
+  try {
+    return localStorage.getItem(ONBOARDING_COMPLETE_KEY) === 'true'
+  } catch {
+    return false
+  }
+}
+
+
+export function setOnboardingComplete(value: boolean): void {
+  if (typeof window === 'undefined') return
+  try {
+    localStorage.setItem(ONBOARDING_COMPLETE_KEY, value ? 'true' : 'false')
+  } catch (error) {
+    console.warn('[v0] Failed to set onboarding completion:', error)
   }
 }
 

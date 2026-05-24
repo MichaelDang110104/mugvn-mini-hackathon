@@ -23,3 +23,6 @@ spring:
     type: redis
 server:
   port: 9000
+
+recommendation:
+  starter-refresh-cron: 0 0 0 * * *

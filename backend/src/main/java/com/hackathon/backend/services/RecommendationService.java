@@ -1,17 +1,19 @@
 package com.hackathon.backend.services;
 
-import com.hackathon.backend.enums.EventType;
 import com.hackathon.backend.dto.RecommendationResponse;
-import com.hackathon.backend.dto.SearchResponse;
+import com.hackathon.backend.dto.SearchResponse.Availability;
 import com.hackathon.backend.dto.SearchResponse.MovieSummary;
 import com.hackathon.backend.dto.SearchResponse.Reason;
 import com.hackathon.backend.dto.SearchResponse.SearchItem;
-import com.hackathon.backend.dto.SearchResponse.Availability;
+import com.hackathon.backend.enums.EventType;
 import com.hackathon.backend.models.EmbeddedMovie;
+import com.hackathon.backend.models.StarterRecommendationCache;
 import com.hackathon.backend.models.UserEvent;
+import com.hackathon.backend.repositories.StarterRecommendationCacheRepository;
 import com.hackathon.backend.repositories.UserEventRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.bson.types.ObjectId;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.mongodb.core.MongoTemplate;
 import org.springframework.data.mongodb.core.query.Criteria;
@@ -19,7 +21,11 @@ import org.springframework.data.mongodb.core.query.Query;
 import org.springframework.stereotype.Service;
 
 import java.time.Instant;
-import java.util.*;
+import java.util.LinkedHashSet;
+import java.util.List;
+import java.util.Objects;
+import java.util.Optional;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 /**
@@ -34,6 +40,7 @@ public class RecommendationService {
 
     private final MongoTemplate mongoTemplate;
     private final UserEventRepository userEventRepository;
+    private final StarterRecommendationCacheRepository starterRecommendationCacheRepository;
     private final VectorSearchService vectorSearchService;
     private final EmbeddingService embeddingService;
 
@@ -41,18 +48,20 @@ public class RecommendationService {
     private static final int MIN_EVENTS_FOR_PERSONALIZATION = 3;
 
     public RecommendationResponse getRecommendations(String sessionId, String context,
-                                                      Integer limit, String region) {
+            Integer limit, String region) {
         int effectiveLimit = (limit != null && limit > 0) ? limit : DEFAULT_LIMIT;
 
-        // Check if the session has enough events for personalization
         List<UserEvent> recentEvents = userEventRepository
                 .findBySessionIdOrderByTimestampDesc(sessionId);
 
         if (recentEvents.size() < MIN_EVENTS_FOR_PERSONALIZATION) {
+            RecommendationResponse onboardingResponse = buildOnboardingStarterRecommendations(sessionId, effectiveLimit);
+            if (onboardingResponse != null) {
+                return onboardingResponse;
+            }
             return buildColdStartRecommendations(effectiveLimit);
         }
 
-        // Try personalized recommendations based on liked/saved movies
         try {
             return buildPersonalizedRecommendations(recentEvents, effectiveLimit);
         } catch (Exception e) {
@@ -65,9 +74,8 @@ public class RecommendationService {
     private RecommendationResponse buildPersonalizedRecommendations(
             List<UserEvent> events, int limit) {
 
-        // Extract liked/saved/highly-rated movie IDs for profile-based recs
         Set<String> positiveMovieIds = events.stream()
-                .filter(e -> isPositiveEvent(e))
+                .filter(this::isPositiveEvent)
                 .map(UserEvent::getMovieId)
                 .filter(Objects::nonNull)
                 .collect(Collectors.toCollection(LinkedHashSet::new));
@@ -76,11 +84,9 @@ public class RecommendationService {
             return buildColdStartRecommendations(limit);
         }
 
-        // Use the most recent positive movie's embedding for vector search
         String seedMovieId = positiveMovieIds.iterator().next();
 
-        Query embQuery = new Query(Criteria.where("_id").is(
-                new org.bson.types.ObjectId(seedMovieId)));
+        Query embQuery = new Query(Criteria.where("_id").is(new ObjectId(seedMovieId)));
         embQuery.fields().include("plot_embedding");
         EmbeddedMovie seedMovie = mongoTemplate.findOne(embQuery, EmbeddedMovie.class);
 
@@ -90,10 +96,8 @@ public class RecommendationService {
             return buildColdStartRecommendations(limit);
         }
 
-        var results = vectorSearchService.searchByEmbedding(
-                seedMovie.getPlotEmbedding(), limit + 5);
+        var results = vectorSearchService.searchByEmbedding(seedMovie.getPlotEmbedding(), limit + 5);
 
-        // Deduplicate and exclude already-interacted movies
         List<SearchItem> items = results.stream()
                 .filter(r -> !positiveMovieIds.contains(
                         r.getMovie().getId() != null ? r.getMovie().getId().toHexString() : ""))
@@ -118,6 +122,56 @@ public class RecommendationService {
                 .fallbackUsed(false)
                 .generatedAt(Instant.now().toString())
                 .build();
+    }
+
+    private RecommendationResponse buildOnboardingStarterRecommendations(String sessionId, int limit) {
+        Optional<StarterRecommendationCache> cacheOptional = starterRecommendationCacheRepository
+                .findTopBySessionIdOrderByGeneratedAtDesc(sessionId);
+
+        if (cacheOptional.isEmpty()) {
+            return null;
+        }
+
+        StarterRecommendationCache cache = cacheOptional.get();
+        if (cache.getCandidateMovieIds() == null || cache.getCandidateMovieIds().isEmpty()) {
+            return null;
+        }
+
+        Query query = new Query(Criteria.where("_id").in(
+                cache.getCandidateMovieIds().stream().map(ObjectId::new).toList()));
+        query.fields().exclude("plot_embedding").exclude("plot_embedding_voyage_3_large");
+
+        List<EmbeddedMovie> movies = mongoTemplate.find(query, EmbeddedMovie.class);
+        List<SearchItem> items = movies.stream()
+                .limit(limit)
+                .map(m -> SearchItem.builder()
+                        .movie(toMovieSummary(m))
+                        .score(scoreFor(cache, m.getId().toHexString()))
+                        .reasons(List.of(Reason.builder()
+                                .code("semantic_match_to_onboarding")
+                                .label("Matches the tastes you selected")
+                                .build()))
+                        .build())
+                .toList();
+
+        if (items.isEmpty()) {
+            return null;
+        }
+
+        return RecommendationResponse.builder()
+                .items(items)
+                .mode("cold_start")
+                .fallbackUsed(false)
+                .generatedAt(Instant.now().toString())
+                .build();
+    }
+
+    private Double scoreFor(StarterRecommendationCache cache, String movieId) {
+        int index = cache.getCandidateMovieIds().indexOf(movieId);
+        if (index < 0 || cache.getCandidateScores() == null || index >= cache.getCandidateScores().size()) {
+            return 0.0;
+        }
+        return cache.getCandidateScores().get(index);
     }
 
     private RecommendationResponse buildColdStartRecommendations(int limit) {

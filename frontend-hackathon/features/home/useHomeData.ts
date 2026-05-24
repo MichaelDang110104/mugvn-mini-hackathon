@@ -22,7 +22,7 @@ interface HomeDataState {
 }
 
 export function useHomeData(): HomeDataState {
-  const { sessionId, sessionReady } = useSessionId()
+  const { sessionId, sessionReady, onboardingComplete } = useSessionId()
   const [sections, setSections] = useState<Section[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -30,6 +30,11 @@ export function useHomeData(): HomeDataState {
 
   const fetchData = async () => {
     if (!sessionReady || !sessionId) {
+      return
+    }
+
+    if (!onboardingComplete) {
+      window.location.href = '/onboarding'
       return
     }
 
@@ -67,7 +72,7 @@ export function useHomeData(): HomeDataState {
     if (sessionReady) {
       fetchData()
     }
-  }, [sessionId, sessionReady])
+  }, [sessionId, sessionReady, onboardingComplete])
 
   return {
     sections,

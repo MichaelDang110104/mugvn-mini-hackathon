@@ -78,7 +78,25 @@ export interface BackendRecommendationResponse {
   generatedAt: string
 }
 
-// --- POST /api/events request ---
+export interface BackendOnboardingRequest {
+  sessionId: string
+  selectedGenres: string[]
+  selectedThemes: string[]
+  favoriteTitles: string[]
+  avoidedGenres: string[]
+  avoidedThemes: string[]
+  preferredLanguages: string[]
+  preferredEra: string
+  preferredPace: string
+  freeTextTasteSummary: string
+}
+
+export interface BackendOnboardingResponse {
+  sessionId: string
+  completed: boolean
+  profileVersion: number
+}
+
 
 export interface BackendEventRequest {
   sessionId: string

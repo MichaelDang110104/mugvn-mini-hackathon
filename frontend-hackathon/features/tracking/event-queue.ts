@@ -232,27 +232,27 @@ function setupPageUnload(): void {
 
     window.addEventListener('beforeunload', () => {
         if (globalState.queue.length > 0) {
-            // Use sendBeacon for best-effort delivery — send each event individually
-            // since the backend only has POST /api/events (single event endpoint)
-            for (const e of globalState.queue) {
-                const movieId = e.metadata?.movieId as string | undefined
-                const body = JSON.stringify({
-                    sessionId: e.sessionId,
-                    eventId: e.eventId,
-                    eventType: e.eventType,
-                    movieId: movieId || null,
-                    queryText: e.eventType === 'search' ? e.eventValue : null,
-                    eventValue: e.eventType === 'rate' && e.eventValue ? parseInt(e.eventValue, 10) : null,
-                    metadata: { source: e.screen, component: e.component, ...e.metadata },
-                    timestamp: e.timestamp,
+            const batchBody = JSON.stringify(
+                globalState.queue.map(e => {
+                    const movieId = e.metadata?.movieId as string | undefined
+                    return {
+                        sessionId: e.sessionId,
+                        eventId: e.eventId,
+                        eventType: e.eventType,
+                        movieId: movieId || null,
+                        queryText: e.eventType === 'search' ? e.eventValue : null,
+                        eventValue: e.eventType === 'rate' && e.eventValue ? parseInt(e.eventValue, 10) : null,
+                        metadata: { source: e.screen, component: e.component, ...e.metadata },
+                        timestamp: e.timestamp,
+                    }
                 })
+            )
 
-                try {
-                    const blob = new Blob([body], { type: 'application/json' })
-                    navigator.sendBeacon(`${apiBaseUrl}/api/events`, blob)
-                } catch (error) {
-                    console.warn('[api] sendBeacon failed:', error)
-                }
+            try {
+                const blob = new Blob([batchBody], { type: 'application/json' })
+                navigator.sendBeacon(`${apiBaseUrl}/api/events/batch`, blob)
+            } catch (error) {
+                console.warn('[api] batch sendBeacon failed:', error)
             }
         }
     })

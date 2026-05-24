@@ -5,9 +5,11 @@ import com.hackathon.backend.enums.EventType;
 import com.hackathon.backend.events.UserEventReceivedEvent;
 import com.hackathon.backend.models.AppUser;
 import com.hackathon.backend.models.MflixUser;
+import com.hackathon.backend.models.RecommendationProfile;
 import com.hackathon.backend.models.UserEvent;
 import com.hackathon.backend.repositories.AppUserRepository;
 import com.hackathon.backend.repositories.MflixUserRepository;
+import com.hackathon.backend.repositories.RecommendationProfileRepository;
 import com.hackathon.backend.repositories.UserEventRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -27,6 +29,7 @@ public class EventProcessingListener {
     private final UserEventRepository userEventRepository;
     private final AppUserRepository appUserRepository;
     private final MflixUserRepository mflixUserRepository;
+    private final RecommendationProfileRepository recommendationProfileRepository;
     private final UserEmbeddingService userEmbeddingService;
     private final ProfileUpdatePolicy profileUpdatePolicy;
 
@@ -63,6 +66,8 @@ public class EventProcessingListener {
             return;
         }
 
+        updateProfileCounters(userId, type, request.getEventValue());
+
         try {
             if (userId != null && profileUpdatePolicy.shouldRecompute(type, request.getEventValue())) {
                 userEmbeddingService.computeUserEmbedding(userId);
@@ -70,6 +75,27 @@ public class EventProcessingListener {
         } catch (Exception e) {
             log.warn("User embedding computation failed for user [{}]: {}", userId, e.getMessage());
         }
+    }
+
+    private void updateProfileCounters(String userId, EventType type, Integer eventValue) {
+        if (userId == null || !isStrongPositive(type, eventValue)) {
+            return;
+        }
+
+        recommendationProfileRepository.findByUserId(userId).ifPresent(profile -> {
+            int pending = profile.getPendingStrongPositiveEvents() == null ? 0 : profile.getPendingStrongPositiveEvents();
+            int total = profile.getStrongPositiveEventCount() == null ? 0 : profile.getStrongPositiveEventCount();
+            profile.setPendingStrongPositiveEvents(pending + 1);
+            profile.setStrongPositiveEventCount(total + 1);
+            recommendationProfileRepository.save(profile);
+        });
+    }
+
+    private boolean isStrongPositive(EventType type, Integer eventValue) {
+        if (type == EventType.LIKE || type == EventType.SAVE) {
+            return true;
+        }
+        return type == EventType.RATING && eventValue != null && eventValue >= 4;
     }
 
     private String resolveUserId(EventRequest request) {
