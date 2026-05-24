@@ -5,11 +5,16 @@ import com.hackathon.backend.dto.SearchResponse.Availability;
 import com.hackathon.backend.dto.SearchResponse.MovieSummary;
 import com.hackathon.backend.dto.SearchResponse.SearchItem;
 import com.hackathon.backend.engine.RecommendationEngine;
+import com.hackathon.backend.engine.entities.EngineMode;
 import com.hackathon.backend.engine.entities.RecommendationContext;
+import com.hackathon.backend.models.MflixUser;
+import com.hackathon.backend.models.Movie;
 import com.hackathon.backend.services.EmbeddingService;
 import com.hackathon.backend.services.MovieSearchService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.authentication.AuthenticationManager;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -74,5 +79,34 @@ public class SearchController {
                             .query(q)
                             .build());
                 });
+    }
+
+
+    @GetMapping("/home")
+    public CompletableFuture<ResponseEntity<List<Movie>>> homeDefaultQuery(
+            @RequestParam(required = false) Integer limit,
+            @RequestParam(required = false) EngineMode mode,
+            @RequestParam String userId
+    ) {
+        RecommendationContext recommendationContext = this.setContext(limit, mode, userId);
+        return recommendationEngine.execute(recommendationContext).thenApply(
+                ResponseEntity::ok
+        );
+    }
+
+    private RecommendationContext setContext(Integer limit, EngineMode mode, String userId) throws IllegalArgumentException{
+        if(mode == EngineMode.TRENDING) {
+            return RecommendationContext.forTrending(userId, limit);
+        }
+        if(mode == EngineMode.GENRE) {
+            return RecommendationContext.forGenre(userId, limit);
+        }
+
+        if(mode == EngineMode.RECENT_WATCH) {
+            return RecommendationContext.forRecentWatch(userId, limit);
+        }
+        else{
+            throw new IllegalArgumentException("Engine mode cannot be empty");
+        }
     }
 }

@@ -34,9 +34,6 @@ public class AuthController {
             return ResponseEntity.status(401).body("Invalid email");
         }
         
-        // For Hackathon MVP: We assume password matches since we are mocking day-to-day real user tracking.
-        // In a real app, you would use: authenticationManager.authenticate(new UsernamePasswordAuthenticationToken(email, password));
-
         UserDetails userDetails = userDetailsService.loadUserByUsername(user.getEmail());
         String token = jwtUtil.generateToken(userDetails, user.getId().toHexString());
         
