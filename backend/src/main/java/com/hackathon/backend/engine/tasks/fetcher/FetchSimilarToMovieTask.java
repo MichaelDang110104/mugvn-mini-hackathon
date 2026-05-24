@@ -51,21 +51,26 @@ public class FetchSimilarToMovieTask extends RecommendationTaskBase {
 
     @Override
     public CompletableFuture<RecommendationContext> execute(RecommendationContext ctx) {
-        return CompletableFuture.supplyAsync(() -> {
-            int limit = ctx.getLimit() > 0 ? ctx.getLimit() : 20;
+        int limit = ctx.getLimit() > 0 ? ctx.getLimit() : 20;
+        log.info("[FetchSimilarToMovieTask] userId={} mode={} movieId={} limit={}",
+                ctx.getUserId(), ctx.getMode(), ctx.getMovieId(), limit);
 
+        return CompletableFuture.supplyAsync(() -> {
             EmbeddedMovie anchor;
             try {
                 anchor = embeddedMovieRepository.findById(new ObjectId(ctx.getMovieId())).orElse(null);
             } catch (IllegalArgumentException e) {
-                log.warn("Invalid movieId [{}] for similar-to-movie search", ctx.getMovieId());
+                log.warn("[FetchSimilarToMovieTask] Invalid movieId [{}] for similar-to-movie search", ctx.getMovieId());
                 return ctx;
             }
 
             if (anchor == null || anchor.getPlotEmbedding() == null || anchor.getPlotEmbedding().isEmpty()) {
-                log.debug("No embedding found for movieId [{}], skipping similar-to-movie fetch", ctx.getMovieId());
+                log.warn("[FetchSimilarToMovieTask] No embedding found for movieId={}, skipping", ctx.getMovieId());
                 return ctx;
             }
+
+            log.info("[FetchSimilarToMovieTask] anchor found: title='{}' embeddingSize={}",
+                    anchor.getTitle(), anchor.getPlotEmbedding().size());
 
             List<ScoredMovie> candidates = vectorSearchService
                     .searchByEmbedding(anchor.getPlotEmbedding(), limit + 1)
@@ -75,6 +80,9 @@ public class FetchSimilarToMovieTask extends RecommendationTaskBase {
                     .limit(limit)
                     .map(r -> ObjectUtils.toScoredMovie(r, "similar_to_movie"))
                     .toList();
+
+            log.info("[FetchSimilarToMovieTask] fetched {} candidates similar to movieId={} ('{}')",
+                    candidates.size(), ctx.getMovieId(), anchor.getTitle());
 
             ctx.addCandidates(candidates);
             return ctx;

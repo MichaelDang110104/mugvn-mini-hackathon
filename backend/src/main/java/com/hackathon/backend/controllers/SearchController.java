@@ -86,27 +86,36 @@ public class SearchController {
     public CompletableFuture<ResponseEntity<List<Movie>>> homeDefaultQuery(
             @RequestParam(required = false) Integer limit,
             @RequestParam(required = false) EngineMode mode,
-            @RequestParam String userId
+            @RequestParam String userId,
+            @RequestParam(required = false) String movieId,   // used by SIMILAR_TO_MOVIE
+            @RequestParam(required = false) String genre      // used by GENRE (optional override)
     ) {
-        RecommendationContext recommendationContext = this.setContext(limit, mode, userId);
+        RecommendationContext recommendationContext = this.setContext(limit, mode, userId, movieId, genre);
         return recommendationEngine.execute(recommendationContext).thenApply(
                 ResponseEntity::ok
         );
     }
 
-    private RecommendationContext setContext(Integer limit, EngineMode mode, String userId) throws IllegalArgumentException{
-        if(mode == EngineMode.TRENDING) {
-            return RecommendationContext.forTrending(userId, limit);
+    private RecommendationContext setContext(Integer limit, EngineMode mode, String userId,
+                                             String movieId, String genre) throws IllegalArgumentException {
+        int effectiveLimit = (limit != null && limit > 0) ? limit : 10;
+        if (mode == EngineMode.TRENDING) {
+            return RecommendationContext.forTrending(userId, effectiveLimit);
         }
-        if(mode == EngineMode.GENRE) {
-            return RecommendationContext.forGenre(userId, limit);
+        if (mode == EngineMode.GENRE) {
+            return (genre != null && !genre.isBlank())
+                    ? RecommendationContext.forGenre(userId, genre, effectiveLimit)
+                    : RecommendationContext.forGenre(userId, effectiveLimit);
         }
-
-        if(mode == EngineMode.RECENT_WATCH) {
-            return RecommendationContext.forRecentWatch(userId, limit);
+        if (mode == EngineMode.SIMILAR_TO_MOVIE) {
+            if (movieId == null || movieId.isBlank()) {
+                throw new IllegalArgumentException("movieId is required for SIMILAR_TO_MOVIE mode");
+            }
+            return RecommendationContext.forSimilarToMovie(userId, movieId, effectiveLimit);
         }
-        else{
-            throw new IllegalArgumentException("Engine mode cannot be empty");
+        if (mode == EngineMode.RECENT_WATCH) {
+            return RecommendationContext.forRecentWatch(userId, effectiveLimit);
         }
+        throw new IllegalArgumentException("Unsupported or missing engine mode: " + mode);
     }
 }

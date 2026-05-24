@@ -6,6 +6,7 @@ import com.hackathon.backend.engine.entities.ScoredMovie;
 import com.hackathon.backend.engine.tasks.RecommendationTaskBase;
 import com.hackathon.backend.engine.utils.ObjectUtils;
 import com.hackathon.backend.repositories.EmbeddedMovieRepository;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Component;
@@ -15,6 +16,7 @@ import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
 
+@Slf4j
 @Component
 public class FetchByGenreTask extends RecommendationTaskBase {
 
@@ -55,12 +57,16 @@ public class FetchByGenreTask extends RecommendationTaskBase {
                 ? List.of(ctx.getGenre())
                 : ctx.getProfile().getTopGenres();
 
+        log.info("[FetchByGenreTask] userId={} mode={} genres={} limit={}",
+                ctx.getUserId(), ctx.getMode(), genres, limit);
+
         return CompletableFuture.supplyAsync(() -> {
             List<ScoredMovie> candidates = embeddedMovieRepository
                     .findByGenresIn(genres, PageRequest.of(0, limit))
                     .stream()
                     .map(movie -> ObjectUtils.toScoredMovie(movie, "genre"))
                     .toList();
+            log.info("[FetchByGenreTask] fetched {} candidates for genres={}", candidates.size(), genres);
             ctx.addCandidates(candidates);
             return ctx;
         }, ioExecutor);
