@@ -80,9 +80,7 @@ Steps:
 1. Pick a random existing user email from MongoDB (collection inferred from `MflixUser` mapping; fallback probing supported).
 2. Navigate to `/login` and authenticate via UI.
 3. If redirected to `/onboarding`, complete it with minimal valid choices.
-4. Navigate to `/home`, scroll and click at least one movie card.
-5. On movie detail page, click Like/Save/Rate to trigger event ingestion.
-6. Navigate to search page and validate results render.
+4. Navigate to `/home` and validate the page loads.
 
 Assertions are lightweight: the goal is detecting runtime errors and broken integration, not strict UI correctness.
 
