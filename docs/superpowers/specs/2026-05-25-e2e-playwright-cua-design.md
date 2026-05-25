@@ -57,7 +57,7 @@ Runner reads environment variables (same variables used by backend/frontend):
 Default ports:
 
 - backend: 9000
-- frontend: 3000
+- frontend: 3001
 
 CLI flags override:
 
