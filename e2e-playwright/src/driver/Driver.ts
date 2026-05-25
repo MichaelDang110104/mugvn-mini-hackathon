@@ -9,6 +9,7 @@ export interface ReducedState {
   title: string
   visibleTextSample: string
   consoleErrors: string[]
+  lastHtmlPath: string
 }
 
 export class Driver {
@@ -126,6 +127,7 @@ export class Driver {
       title,
       visibleTextSample,
       consoleErrors: this.consoleErrors.slice(-50),
+      lastHtmlPath: htmlPath,
     }
   }
 }
