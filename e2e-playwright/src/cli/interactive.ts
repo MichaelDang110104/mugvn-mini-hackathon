@@ -8,6 +8,7 @@ import { Driver } from '../driver/Driver'
 import { parseCommand } from './commands'
 import { formatState } from './formatState'
 import type { ManagedProcess } from '../driver/processManager'
+import { waitForPort } from '../driver/waitForPort'
 
 function getArg(name: string): string | null {
   const idx = process.argv.indexOf(name)
@@ -30,6 +31,12 @@ async function main() {
   const runId = newRunId()
   const artifacts = ensureRunDirs(path.resolve(process.cwd(), 'artifacts'), runId)
 
+  process.stdout.write(`runId=${runId}\n`)
+  process.stdout.write(`artifacts=${artifacts.rootDir}\n`)
+  process.stdout.write(`frontendUrl=${frontendUrl}\n`)
+  process.stdout.write(`backendPort=${backendPort} frontendPort=${frontendPort}\n`)
+  process.stdout.write(`mode=${shouldStart ? '--start' : '--attach'}\n`)
+
   let backendProc: ManagedProcess | null = null;
   let frontendProc: ManagedProcess | null = null;
   let shuttingDown = false;
@@ -37,6 +44,12 @@ async function main() {
   if (shouldStart) {
     backendProc = await startBackend({ repoRoot, backendPort, frontendPort, logsDir: artifacts.logsDir, env: process.env })
     frontendProc = await startFrontend({ repoRoot, backendPort, frontendPort, logsDir: artifacts.logsDir, env: process.env })
+
+    process.stdout.write(`backendLog=${backendProc.logPath}\n`)
+    process.stdout.write(`frontendLog=${frontendProc.logPath}\n`)
+
+    await waitForPort({ host: '127.0.0.1', port: backendPort, timeoutMs: 120000, pollMs: 500 })
+    await waitForPort({ host: '127.0.0.1', port: frontendPort, timeoutMs: 120000, pollMs: 500 })
   }
   function shutdown() {
     if (shuttingDown) return;
