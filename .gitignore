@@ -42,3 +42,5 @@ logs/
 
 # OS
 Thumbs.db
+
+e2e-playwright/artifacts/

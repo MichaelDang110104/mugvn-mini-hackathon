@@ -1,5 +1,32 @@
 # Hackathon Documents
 
+## E2E
+
+Install:
+
+```bash
+cd e2e-playwright
+npm install
+npm run install:browsers
+```
+
+Smoke:
+
+```bash
+cd e2e-playwright
+MONGO_URI=... OPENAI_API_KEY=... REDIS_HOST=... npm run dev:smoke -- --start
+```
+
+Interactive:
+
+```bash
+cd e2e-playwright
+MONGO_URI=... OPENAI_API_KEY=... REDIS_HOST=... npm run dev:interactive -- --start
+```
+
+Artifacts are written to `e2e-playwright/artifacts/<runId>/`.
+
+
 Internal engineering documentation for the MUGVN Mini Hackathon 2026 movie recommendation project.
 
 This repository is for developers only. It contains the minimum useful document set needed to implement, reason about, and verify the MongoDB-centered recommendation engine.
