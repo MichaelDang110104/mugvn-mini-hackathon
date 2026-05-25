@@ -18,6 +18,7 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.util.ArrayList;
 import java.util.List;
 
 @Slf4j
@@ -45,7 +46,7 @@ public class EventController {
         int accepted = 0;
         int failed = 0;
 
-        List<EventRequest> valid = new java.util.ArrayList<>();
+        List<EventRequest> valid = new ArrayList<>();
         for (EventRequest request : requests) {
             if (validate(request) != null) {
                 failed++;

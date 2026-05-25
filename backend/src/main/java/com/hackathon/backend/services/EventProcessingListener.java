@@ -19,7 +19,11 @@ import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Component;
 
 import java.time.Instant;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 
 @Slf4j
 @Component
@@ -40,9 +44,9 @@ public class EventProcessingListener {
             return;
         }
 
-        java.util.Map<String, String> sessionToUserId = new java.util.HashMap<>();
-        java.util.Map<String, Integer> strongPositivesPerUser = new java.util.HashMap<>();
-        java.util.Set<String> usersToRecompute = new java.util.HashSet<>();
+        Map<String, String> sessionToUserId = new HashMap<>();
+        Map<String, Integer> strongPositivesPerUser = new HashMap<>();
+        Set<String> usersToRecompute = new HashSet<>();
 
         for (EventRequest request : event.getRequests()) {
             if (request == null) continue;
@@ -101,12 +105,12 @@ public class EventProcessingListener {
         }
     }
 
-    private void updateProfileCountersBatch(java.util.Map<String, Integer> strongPositivesPerUser) {
+    private void updateProfileCountersBatch(Map<String, Integer> strongPositivesPerUser) {
         if (strongPositivesPerUser == null || strongPositivesPerUser.isEmpty()) {
             return;
         }
 
-        for (java.util.Map.Entry<String, Integer> entry : strongPositivesPerUser.entrySet()) {
+        for (Map.Entry<String, Integer> entry : strongPositivesPerUser.entrySet()) {
             String userId = entry.getKey();
             Integer inc = entry.getValue();
             if (userId == null || inc == null || inc <= 0) continue;
@@ -128,7 +132,7 @@ public class EventProcessingListener {
         return type == EventType.RATING && eventValue != null && eventValue >= 4;
     }
 
-    private String resolveUserIdCached(EventRequest request, java.util.Map<String, String> sessionToUserId) {
+    private String resolveUserIdCached(EventRequest request, Map<String, String> sessionToUserId) {
         if (request == null) return null;
 
         if (request.getUserId() != null) {
