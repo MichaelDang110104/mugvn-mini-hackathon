@@ -1,5 +1,8 @@
+import dotenv from 'dotenv'
 import readline from 'node:readline'
 import path from 'node:path'
+
+dotenv.config({ path: path.resolve(process.cwd(), '.env') })
 import { ensureRunDirs, newRunId, writeText } from '../driver/artifacts'
 import { Driver } from '../driver/Driver'
 import { parseCommand } from './commands'

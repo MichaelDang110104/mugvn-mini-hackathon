@@ -1,4 +1,7 @@
+import dotenv from 'dotenv'
 import path from 'node:path'
+
+dotenv.config({ path: path.resolve(process.cwd(), '.env') })
 import { ensureRunDirs, newRunId, writeText } from '../driver/artifacts'
 import { Driver } from '../driver/Driver'
 import { pickRandomEmail } from '../driver/mongoEmailPicker'
