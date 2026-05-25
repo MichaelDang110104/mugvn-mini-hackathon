@@ -44,3 +44,7 @@ logs/
 Thumbs.db
 
 e2e-playwright/artifacts/
+
+# git worktrees
+.worktrees/
+worktrees/
