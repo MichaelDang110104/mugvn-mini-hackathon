@@ -17,10 +17,10 @@ public class StarterRecommendationService {
 
     private final StarterRecommendationCacheRepository cacheRepository;
     private final VectorSearchService vectorSearchService;
-    private final StarterQueryService starterQueryService;
+    private final StarterQueryLlmService starterQueryLlmService;
 
     public StarterRecommendationCache refreshStarterCandidates(RecommendationProfile profile, String freeText) {
-        StarterQueryPackage queryPackage = starterQueryService.buildForProfile(profile, freeText);
+        StarterQueryPackage queryPackage = starterQueryLlmService.buildForProfile(profile, freeText);
         List<VectorSearchResult> results = vectorSearchService.searchByQueryText(queryPackage.getStarterQueryText(), 20);
         Instant now = Instant.now();
 

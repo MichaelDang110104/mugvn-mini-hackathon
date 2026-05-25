@@ -35,7 +35,7 @@ public class EventController {
             return ResponseEntity.badRequest().body(validationError);
         }
 
-        publish(request);
+        publish(List.of(request));
 
         return ResponseEntity.accepted().body(new EventResponse("ack"));
     }
@@ -45,14 +45,18 @@ public class EventController {
         int accepted = 0;
         int failed = 0;
 
+        List<EventRequest> valid = new java.util.ArrayList<>();
         for (EventRequest request : requests) {
             if (validate(request) != null) {
                 failed++;
                 continue;
             }
+            valid.add(request);
+        }
 
-            publish(request);
-            accepted++;
+        if (!valid.isEmpty()) {
+            accepted = valid.size();
+            publish(valid);
         }
 
         return ResponseEntity.accepted().body(new BatchEventResponse(accepted, failed));
@@ -81,15 +85,24 @@ public class EventController {
         }
     }
 
-    private void publish(EventRequest request) {
+    private void publish(List<EventRequest> requests) {
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();
         if (auth != null && auth.getPrincipal() instanceof UserDetails userDetails) {
-            request.setUserId(userDetails.getUsername());
+            for (EventRequest request : requests) {
+                if (request != null) {
+                    request.setUserId(userDetails.getUsername());
+                }
+            }
         }
 
-        log.debug("Received event [{}] type=[{}] session=[{}]",
-                request.getEventId(), request.getEventType(), request.getSessionId());
+        if (requests != null) {
+            for (EventRequest request : requests) {
+                if (request == null) continue;
+                log.debug("Received event [{}] type=[{}] session=[{}]",
+                        request.getEventId(), request.getEventType(), request.getSessionId());
+            }
+        }
 
-        eventPublisher.publishEvent(new UserEventReceivedEvent(this, request));
+        eventPublisher.publishEvent(new UserEventReceivedEvent(this, requests));
     }
 }

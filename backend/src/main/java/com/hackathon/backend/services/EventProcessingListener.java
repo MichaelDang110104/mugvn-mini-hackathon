@@ -36,59 +36,89 @@ public class EventProcessingListener {
     @Async("eventExecutor")
     @EventListener
     public void onEventReceived(UserEventReceivedEvent event) {
-        EventRequest request = event.getRequest();
-        EventType type = EventType.fromValue(request.getEventType());
-
-        Instant timestamp = request.getTimestamp() != null && !request.getTimestamp().isBlank()
-                ? Instant.parse(request.getTimestamp())
-                : Instant.now();
-
-        String userId = resolveUserId(request);
-
-        UserEvent userEvent = UserEvent.builder()
-                .eventId(request.getEventId())
-                .userId(userId)
-                .sessionId(request.getSessionId())
-                .eventType(type)
-                .movieId(request.getMovieId())
-                .queryText(request.getQueryText())
-                .eventValue(request.getEventValue())
-                .metadata(request.getMetadata())
-                .timestamp(timestamp)
-                .build();
-
-        try {
-            userEventRepository.save(userEvent);
-            log.debug("Persisted event [{}] type=[{}] weight={} session=[{}]",
-                    userEvent.getEventId(), type.getValue(), type.getWeight(), userEvent.getSessionId());
-        } catch (DuplicateKeyException e) {
-            log.debug("Duplicate event [{}], skipping", request.getEventId());
+        if (event == null || event.getRequests() == null || event.getRequests().isEmpty()) {
             return;
         }
 
-        updateProfileCounters(userId, type, request.getEventValue());
+        java.util.Map<String, String> sessionToUserId = new java.util.HashMap<>();
+        java.util.Map<String, Integer> strongPositivesPerUser = new java.util.HashMap<>();
+        java.util.Set<String> usersToRecompute = new java.util.HashSet<>();
 
-        try {
-            if (userId != null && profileUpdatePolicy.shouldRecompute(type, request.getEventValue())) {
-                userEmbeddingService.computeUserEmbedding(userId);
+        for (EventRequest request : event.getRequests()) {
+            if (request == null) continue;
+
+            EventType type;
+            try {
+                type = EventType.fromValue(request.getEventType());
+            } catch (IllegalArgumentException e) {
+                continue;
             }
-        } catch (Exception e) {
-            log.warn("User embedding computation failed for user [{}]: {}", userId, e.getMessage());
+
+            Instant timestamp = request.getTimestamp() != null && !request.getTimestamp().isBlank()
+                    ? Instant.parse(request.getTimestamp())
+                    : Instant.now();
+
+            String userId = resolveUserIdCached(request, sessionToUserId);
+
+            UserEvent userEvent = UserEvent.builder()
+                    .eventId(request.getEventId())
+                    .userId(userId)
+                    .sessionId(request.getSessionId())
+                    .eventType(type)
+                    .movieId(request.getMovieId())
+                    .queryText(request.getQueryText())
+                    .eventValue(request.getEventValue())
+                    .metadata(request.getMetadata())
+                    .timestamp(timestamp)
+                    .build();
+
+            try {
+                userEventRepository.save(userEvent);
+                log.debug("Persisted event [{}] type=[{}] weight={} session=[{}]",
+                        userEvent.getEventId(), type.getValue(), type.getWeight(), userEvent.getSessionId());
+            } catch (DuplicateKeyException e) {
+                log.debug("Duplicate event [{}], skipping", request.getEventId());
+                continue;
+            }
+
+            if (userId != null && isStrongPositive(type, request.getEventValue())) {
+                strongPositivesPerUser.merge(userId, 1, Integer::sum);
+            }
+
+            if (userId != null && profileUpdatePolicy.shouldRecompute(type, request.getEventValue())) {
+                usersToRecompute.add(userId);
+            }
+        }
+
+        updateProfileCountersBatch(strongPositivesPerUser);
+
+        for (String userId : usersToRecompute) {
+            try {
+                userEmbeddingService.computeUserEmbedding(userId);
+            } catch (Exception e) {
+                log.warn("User embedding computation failed for user [{}]: {}", userId, e.getMessage());
+            }
         }
     }
 
-    private void updateProfileCounters(String userId, EventType type, Integer eventValue) {
-        if (userId == null || !isStrongPositive(type, eventValue)) {
+    private void updateProfileCountersBatch(java.util.Map<String, Integer> strongPositivesPerUser) {
+        if (strongPositivesPerUser == null || strongPositivesPerUser.isEmpty()) {
             return;
         }
 
-        recommendationProfileRepository.findByUserId(userId).ifPresent(profile -> {
-            int pending = profile.getPendingStrongPositiveEvents() == null ? 0 : profile.getPendingStrongPositiveEvents();
-            int total = profile.getStrongPositiveEventCount() == null ? 0 : profile.getStrongPositiveEventCount();
-            profile.setPendingStrongPositiveEvents(pending + 1);
-            profile.setStrongPositiveEventCount(total + 1);
-            recommendationProfileRepository.save(profile);
-        });
+        for (java.util.Map.Entry<String, Integer> entry : strongPositivesPerUser.entrySet()) {
+            String userId = entry.getKey();
+            Integer inc = entry.getValue();
+            if (userId == null || inc == null || inc <= 0) continue;
+
+            recommendationProfileRepository.findByUserId(userId).ifPresent(profile -> {
+                int pending = profile.getPendingStrongPositiveEvents() == null ? 0 : profile.getPendingStrongPositiveEvents();
+                int total = profile.getStrongPositiveEventCount() == null ? 0 : profile.getStrongPositiveEventCount();
+                profile.setPendingStrongPositiveEvents(pending + inc);
+                profile.setStrongPositiveEventCount(total + inc);
+                recommendationProfileRepository.save(profile);
+            });
+        }
     }
 
     private boolean isStrongPositive(EventType type, Integer eventValue) {
@@ -98,7 +128,9 @@ public class EventProcessingListener {
         return type == EventType.RATING && eventValue != null && eventValue >= 4;
     }
 
-    private String resolveUserId(EventRequest request) {
+    private String resolveUserIdCached(EventRequest request, java.util.Map<String, String> sessionToUserId) {
+        if (request == null) return null;
+
         if (request.getUserId() != null) {
             Optional<MflixUser> mflixUser = mflixUserRepository.findByEmail(request.getUserId());
             if (mflixUser.isPresent()) {
@@ -108,11 +140,21 @@ public class EventProcessingListener {
             }
         }
 
+        String sessionId = request.getSessionId();
+        if (sessionId == null || sessionId.isBlank()) return null;
+
+        if (sessionToUserId.containsKey(sessionId)) {
+            return sessionToUserId.get(sessionId);
+        }
+
         try {
-            Optional<AppUser> appUser = appUserRepository.findBySessionId(request.getSessionId());
-            return appUser.map(AppUser::getId).orElse(null);
+            Optional<AppUser> appUser = appUserRepository.findBySessionId(sessionId);
+            String userId = appUser.map(AppUser::getId).orElse(null);
+            sessionToUserId.put(sessionId, userId);
+            return userId;
         } catch (Exception e) {
-            log.warn("Could not resolve userId for session [{}]: {}", request.getSessionId(), e.getMessage());
+            log.warn("Could not resolve userId for session [{}]: {}", sessionId, e.getMessage());
+            sessionToUserId.put(sessionId, null);
             return null;
         }
     }

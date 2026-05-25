@@ -15,15 +15,15 @@ public class CacheConfig {
 
     @Bean
     public RedisCacheManager cacheManager(RedisConnectionFactory connectionFactory) {
-        // Default configuration (e.g., 5 minutes)
         RedisCacheConfiguration defaultCacheConfig = RedisCacheConfiguration.defaultCacheConfig()
                 .entryTtl(Duration.ofMinutes(5));
 
-        // Specific configuration for the "queries" cache (e.g., 24 hours)
         return RedisCacheManager.builder(connectionFactory)
                 .cacheDefaults(defaultCacheConfig)
                 .withCacheConfiguration("queries",
                         RedisCacheConfiguration.defaultCacheConfig().entryTtl(Duration.ofHours(1)))
+                .withCacheConfiguration("starterQuery",
+                        RedisCacheConfiguration.defaultCacheConfig().entryTtl(Duration.ofHours(24)))
                 .build();
     }
 }
