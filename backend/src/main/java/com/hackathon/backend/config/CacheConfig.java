@@ -1,11 +1,14 @@
 package com.hackathon.backend.config;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.cache.annotation.EnableCaching;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.data.redis.cache.RedisCacheConfiguration;
 import org.springframework.data.redis.cache.RedisCacheManager;
 import org.springframework.data.redis.connection.RedisConnectionFactory;
+import org.springframework.data.redis.serializer.GenericJackson2JsonRedisSerializer;
+import org.springframework.data.redis.serializer.RedisSerializationContext;
 
 import java.time.Duration;
 
@@ -14,16 +17,17 @@ import java.time.Duration;
 public class CacheConfig {
 
     @Bean
-    public RedisCacheManager cacheManager(RedisConnectionFactory connectionFactory) {
-        RedisCacheConfiguration defaultCacheConfig = RedisCacheConfiguration.defaultCacheConfig()
-                .entryTtl(Duration.ofMinutes(5));
+    public RedisCacheManager cacheManager(RedisConnectionFactory connectionFactory, ObjectMapper objectMapper) {
+        GenericJackson2JsonRedisSerializer json = new GenericJackson2JsonRedisSerializer(objectMapper);
+        RedisSerializationContext.SerializationPair<Object> values = RedisSerializationContext.SerializationPair.fromSerializer(json);
+
+        RedisCacheConfiguration base = RedisCacheConfiguration.defaultCacheConfig()
+                .serializeValuesWith(values);
 
         return RedisCacheManager.builder(connectionFactory)
-                .cacheDefaults(defaultCacheConfig)
-                .withCacheConfiguration("queries",
-                        RedisCacheConfiguration.defaultCacheConfig().entryTtl(Duration.ofHours(1)))
-                .withCacheConfiguration("starterQuery",
-                        RedisCacheConfiguration.defaultCacheConfig().entryTtl(Duration.ofHours(24)))
+                .cacheDefaults(base.entryTtl(Duration.ofMinutes(5)))
+                .withCacheConfiguration("queries", base.entryTtl(Duration.ofHours(1)))
+                .withCacheConfiguration("starterQuery", base.entryTtl(Duration.ofHours(24)))
                 .build();
     }
 }
