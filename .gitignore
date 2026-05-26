@@ -45,6 +45,8 @@ Thumbs.db
 
 e2e-playwright/artifacts/
 
+.pi/
+
 # git worktrees
 .worktrees/
 worktrees/
