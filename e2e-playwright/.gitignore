@@ -2,3 +2,5 @@ node_modules/
 dist/
 artifacts/
 .playwright/
+
+pick-email.mjs
