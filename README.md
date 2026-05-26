@@ -24,6 +24,21 @@ cd e2e-playwright
 MONGO_URI=... OPENAI_API_KEY=... REDIS_HOST=... npm run dev:interactive -- --start
 ```
 
+Interactive HTTP control server:
+
+```bash
+cd e2e-playwright
+MONGO_URI=... OPENAI_API_KEY=... REDIS_HOST=... npm run dev:server -- --start --backend-port 9000 --frontend-port 3001 --frontend-url http://localhost:3001 --server-port 3210
+```
+
+Drive it:
+
+```bash
+curl -s http://127.0.0.1:3210/health
+curl -s -XPOST http://127.0.0.1:3210/cmd -H 'content-type: application/json' -d '{"cmd":"goto /login"}'
+curl -s -XPOST http://127.0.0.1:3210/shutdown -H 'content-type: application/json' -d '{}'
+```
+
 Artifacts are written to `e2e-playwright/artifacts/<runId>/`.
 
 
