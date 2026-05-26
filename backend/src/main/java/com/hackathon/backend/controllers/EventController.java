@@ -5,10 +5,10 @@ import com.hackathon.backend.dto.BatchEventResponse;
 import com.hackathon.backend.dto.EventRequest;
 import com.hackathon.backend.dto.EventResponse;
 import com.hackathon.backend.enums.EventType;
-import com.hackathon.backend.events.UserEventReceivedEvent;
+import com.hackathon.backend.kafka.UserEventPublisher;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.context.ApplicationEventPublisher;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -27,7 +27,7 @@ import java.util.List;
 @RequiredArgsConstructor
 public class EventController {
 
-    private final ApplicationEventPublisher eventPublisher;
+    private final UserEventPublisher userEventPublisher;
 
     @PostMapping
     public ResponseEntity<?> postEvent(@RequestBody EventRequest request) {
@@ -36,7 +36,13 @@ public class EventController {
             return ResponseEntity.badRequest().body(validationError);
         }
 
-        publish(List.of(request));
+        try {
+            publish(List.of(request));
+        } catch (RuntimeException e) {
+            log.warn("Kafka publish failed for event [{}]: {}", request.getEventId(), e.getMessage());
+            return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE)
+                    .body(ErrorResponse.internalError("Event ingestion is temporarily unavailable"));
+        }
 
         return ResponseEntity.accepted().body(new EventResponse("ack"));
     }
@@ -57,7 +63,13 @@ public class EventController {
 
         if (!valid.isEmpty()) {
             accepted = valid.size();
-            publish(valid);
+            try {
+                publish(valid);
+            } catch (RuntimeException e) {
+                log.warn("Kafka publish failed for batch event request: {}", e.getMessage());
+                return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE)
+                        .body(new BatchEventResponse(0, requests.size()));
+            }
         }
 
         return ResponseEntity.accepted().body(new BatchEventResponse(accepted, failed));
@@ -104,6 +116,8 @@ public class EventController {
             }
         }
 
-        eventPublisher.publishEvent(new UserEventReceivedEvent(this, requests));
+        for (EventRequest request : requests) {
+            userEventPublisher.publish(request);
+        }
     }
 }

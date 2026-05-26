@@ -3,10 +3,12 @@ spring:
     name: backend
   ai:
     openai:
+      # Keep secrets out of source control; provide OPENAI_API_KEY via env.
       api-key: ${OPENAI_API_KEY}
       embedding:
         options:
-          model: text-embedding-ada-002
+          # Embedding model used by vector search / onboarding.
+          model: text-embedding-3-small
     vectorstore:
       mongodb:
         collection-name: embedded_movies
@@ -15,8 +17,22 @@ spring:
         initialize-schema: false
   mongodb:
     uri: ${MONGO_URI}
+  kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
+    consumer:
+      group-id: ${KAFKA_USER_EVENT_PROCESSOR_GROUP:user-event-processor}
+      auto-offset-reset: earliest
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.springframework.kafka.support.serializer.JsonDeserializer
+      properties:
+        spring.json.trusted.packages: com.hackathon.backend.kafka
+        spring.json.value.default.type: com.hackathon.backend.kafka.UserEventMessageV1
   data:
     redis:
+      # Provide REDIS_HOST via env.
       host: ${REDIS_HOST}
       port: 6379
   cache:
@@ -31,3 +47,9 @@ recommendation:
       enabled: ${STARTER_QUERY_LLM_ENABLED:false}
       model: ${STARTER_QUERY_LLM_MODEL:gpt-4o-mini}
       temperature: ${STARTER_QUERY_LLM_TEMPERATURE:0.2}
+
+app:
+  kafka:
+    user-events-topic: ${KAFKA_USER_EVENTS_TOPIC:user-events.v1}
+    user-event-processor-group: ${KAFKA_USER_EVENT_PROCESSOR_GROUP:user-event-processor}
+    user-event-consumer-concurrency: ${KAFKA_USER_EVENT_CONSUMER_CONCURRENCY:1}
