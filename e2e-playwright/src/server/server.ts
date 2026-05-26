@@ -32,7 +32,13 @@ export async function startServer(opts: StartServerOptions): Promise<http.Server
       }
 
       if (method === 'POST' && url === '/cmd') {
-        const body = await readJson(req)
+        let body: any
+        try {
+          body = await readJson(req)
+        } catch {
+          badRequest(res, 'invalid_json')
+          return
+        }
         const cmdText = body?.cmd
         if (typeof cmdText !== 'string' || !cmdText.trim()) {
           badRequest(res, 'cmd_required')
