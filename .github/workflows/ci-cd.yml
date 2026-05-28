@@ -89,6 +89,17 @@ jobs:
             # ── Create shared network (if not exists) ──
             docker network create hackathon-net 2>/dev/null || true
 
+            # ── Debug Secrets (Masked by GitHub, so we just check if they are set) ──
+            echo "--- Debug Backend Environment Variables ---"
+            echo "MONGO_URI: $( [ -z "${{ secrets.MONGO_URI }}" ] && echo "EMPTY" || echo "SET" )"
+            echo "REDIS_HOST: $( [ -z "${{ secrets.REDIS_HOST }}" ] && echo "EMPTY" || echo "SET" )"
+            echo "OPENAI_API_KEY: $( [ -z "${{ secrets.OPENAI_API_KEY }}" ] && echo "EMPTY" || echo "SET" )"
+            echo "KAFKA_BOOTSTRAP_SERVERS: $( [ -z "${{ secrets.KAFKA_BOOTSTRAP_SERVERS }}" ] && echo "EMPTY" || echo "SET" )"
+            echo "KAFKA_USER_EVENT_PROCESSOR_GROUP: $( [ -z "${{ secrets.KAFKA_USER_EVENT_PROCESSOR_GROUP }}" ] && echo "EMPTY" || echo "SET" )"
+            echo "KAFKA_USER_EVENTS_TOPIC: $( [ -z "${{ secrets.KAFKA_USER_EVENTS_TOPIC }}" ] && echo "EMPTY" || echo "SET" )"
+            echo "STARTER_QUERY_LLM_ENABLED: $( [ -z "${{ secrets.STARTER_QUERY_LLM_ENABLED }}" ] && echo "EMPTY" || echo "SET" )"
+            echo "-----------------------------------------------"
+
             # ── Deploy Backend ──
             docker stop hackathon-backend || true
             docker rm hackathon-backend || true
@@ -109,6 +120,11 @@ jobs:
               -e STARTER_QUERY_LLM_MODEL="${{ secrets.STARTER_QUERY_LLM_MODEL }}" \
               -e STARTER_QUERY_LLM_TEMPERATURE="${{ secrets.STARTER_QUERY_LLM_TEMPERATURE }}" \
               ${DOCKER_USER}/hackathon-backend:${TAG}
+            
+            # Wait a few seconds to let the backend start, then fetch logs to see why it might be failing
+            sleep 10
+            echo "--- Backend Docker Logs ---"
+            docker logs hackathon-backend --tail 100
 
             # ── Deploy Frontend ──
             docker stop hackathon-frontend || true
