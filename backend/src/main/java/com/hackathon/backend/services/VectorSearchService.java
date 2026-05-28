@@ -4,7 +4,10 @@ import com.hackathon.backend.dto.VectorSearchResult;
 import com.hackathon.backend.models.EmbeddedMovie;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.bson.BinaryVector;
+import org.bson.BsonBinary;
 import org.bson.Document;
+import org.bson.Float32BinaryVector;
 import org.bson.types.ObjectId;
 import org.springframework.data.mongodb.core.MongoTemplate;
 import org.springframework.stereotype.Service;
@@ -46,7 +49,7 @@ public class VectorSearchService {
             List<Document> pipeline = List.of(
                     new Document("$vectorSearch", new Document("index", VECTOR_INDEX_NAME)
                             .append("path", VECTOR_PATH)
-                            .append("queryVector", queryVector)
+                            .append("queryVector", toBsonFloat32Vector(queryVector))
                             .append("numCandidates", numCandidates)
                             .append("limit", effectiveLimit)),
                     new Document("$project", projectionDocument())
@@ -95,6 +98,19 @@ public class VectorSearchService {
         EmbeddedMovie movie = mongoTemplate.getConverter().read(EmbeddedMovie.class, document);
         Double score = document.getDouble(VECTOR_SCORE_FIELD);
         return VectorSearchResult.builder().movie(movie).vectorSearchScore(score != null ? score : 0.0).build();
+    }
+
+    private BsonBinary toBsonFloat32Vector(List<Double> queryVector) {
+        Object firstValue = queryVector.getFirst();
+        if (firstValue instanceof Float32BinaryVector binaryVector) {
+            return new BsonBinary(binaryVector);
+        }
+
+        float[] floats = new float[queryVector.size()];
+        for (int i = 0; i < queryVector.size(); i++) {
+            floats[i] = queryVector.get(i).floatValue();
+        }
+        return new BsonBinary(BinaryVector.floatVector(floats));
     }
 
     private Document projectionDocument() {
