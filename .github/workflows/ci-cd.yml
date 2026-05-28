@@ -101,7 +101,6 @@ jobs:
                   MONGO_URI: "${{ secrets.MONGO_URI }}"
                   REDIS_HOST: "${{ secrets.REDIS_HOST }}"
                   OPENAI_API_KEY: "${{ secrets.OPENAI_API_KEY }}"
-                  JAVA_OPTS: "-XX:+UseG1GC -XX:MaxRAMPercentage=75.0"
                 networks:
                   - hackathon-net
                 healthcheck:
