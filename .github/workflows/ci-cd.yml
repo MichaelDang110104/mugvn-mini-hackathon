@@ -96,7 +96,7 @@ jobs:
                 image: ${DOCKER_USER}/hackathon-backend:${TAG}
                 restart: unless-stopped
                 ports:
-                  - "9000:9000"
+                  - "8686:8686"
                 environment:
                   MONGO_URI: "${{ secrets.MONGO_URI }}"
                   REDIS_HOST: "${{ secrets.REDIS_HOST }}"
@@ -105,7 +105,7 @@ jobs:
                 networks:
                   - hackathon-net
                 healthcheck:
-                  test: ["CMD-SHELL", "wget -qO- http://localhost:9000 || exit 1"]
+                  test: ["CMD-SHELL", "wget -qO- http://localhost:8686 || exit 1"]
                   interval: 15s
                   timeout: 10s
                   retries: 5

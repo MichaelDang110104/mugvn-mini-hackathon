@@ -48,7 +48,7 @@ COPY --from=builder /app/extracted/application/ ./
 # Switch to non-root user
 USER appuser
 
-EXPOSE 9000
+EXPOSE 8686
 
 # Use exec form for proper signal handling
 ENTRYPOINT ["java", "-jar", "backend-0.0.1-SNAPSHOT.jar"]

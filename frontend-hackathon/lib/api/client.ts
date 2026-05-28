@@ -4,7 +4,7 @@
  * Transforms backend responses into frontend-friendly MovieItem shapes.
  *
  * Backend base URL is configurable via NEXT_PUBLIC_API_BASE_URL env var.
- * Defaults to http://localhost:9000 for local development.
+ * Defaults to http://localhost:8686 for local development.
  */
 
 import type {
@@ -24,7 +24,7 @@ import type {
 } from './types'
 import { getAuthToken } from '@/lib/session/session-store'
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:9000'
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8686'
 
 // ─── Session header helpers ─────────────────────────────────────────────────
 

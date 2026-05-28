@@ -7,7 +7,7 @@ interface LoginResponse {
   onboardingComplete: boolean
 }
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:9000'
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8686'
 
 export async function loginWithBackend(email: string, password: string = 'any'): Promise<LoginResponse> {
   try {

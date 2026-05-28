@@ -33,7 +33,7 @@ COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 
 # Set the backend URL at build time (can be overridden via docker-compose)
-ARG NEXT_PUBLIC_API_BASE_URL=http://localhost:9000
+ARG NEXT_PUBLIC_API_BASE_URL=http://localhost:8686
 ENV NEXT_PUBLIC_API_BASE_URL=${NEXT_PUBLIC_API_BASE_URL}
 
 # Build with standalone output for minimal production image
