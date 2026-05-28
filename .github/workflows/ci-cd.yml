@@ -89,48 +89,29 @@ jobs:
             # ── Create shared network (if not exists) ──
             docker network create hackathon-net 2>/dev/null || true
 
-            # ── Generate docker-compose.prod.yml on the server ──
-            cat <<EOF > docker-compose.prod.yml
-            services:
-              backend:
-                image: ${DOCKER_USER}/hackathon-backend:${TAG}
-                restart: unless-stopped
-                ports:
-                  - "8686:8686"
-                environment:
-                  MONGO_URI: "${{ secrets.MONGO_URI }}"
-                  REDIS_HOST: "${{ secrets.REDIS_HOST }}"
-                  OPENAI_API_KEY: "${{ secrets.OPENAI_API_KEY }}"
-                networks:
-                  - hackathon-net
-                healthcheck:
-                  test: ["CMD-SHELL", "wget -qO- http://localhost:8686 || exit 1"]
-                  interval: 15s
-                  timeout: 10s
-                  retries: 5
-                  start_period: 30s
+            # ── Deploy Backend ──
+            docker stop hackathon-backend || true
+            docker rm hackathon-backend || true
+            docker pull ${DOCKER_USER}/hackathon-backend:${TAG}
+            docker run -d \
+              --name hackathon-backend \
+              --restart unless-stopped \
+              --network hackathon-net \
+              -p 8686:8686 \
+              -e MONGO_URI="${{ secrets.MONGO_URI }}" \
+              -e REDIS_HOST="${{ secrets.REDIS_HOST }}" \
+              -e OPENAI_API_KEY="${{ secrets.OPENAI_API_KEY }}" \
+              ${DOCKER_USER}/hackathon-backend:${TAG}
 
-              frontend:
-                image: ${DOCKER_USER}/hackathon-frontend:${TAG}
-                restart: unless-stopped
-                ports:
-                  - "3000:3000"
-                environment:
-                  NEXT_PUBLIC_API_BASE_URL: "https://backend.fproject.site"
-                networks:
-                  - hackathon-net
-                depends_on:
-                  backend:
-                    condition: service_healthy
-
-            networks:
-              hackathon-net:
-                external: true
-            EOF
-
-            # ── Pull latest images ──
-            docker compose -f docker-compose.prod.yml pull
-
-            # ── Deploy / Run services ──
-            docker compose -f docker-compose.prod.yml up -d --remove-orphans
+            # ── Deploy Frontend ──
+            docker stop hackathon-frontend || true
+            docker rm hackathon-frontend || true
+            docker pull ${DOCKER_USER}/hackathon-frontend:${TAG}
+            docker run -d \
+              --name hackathon-frontend \
+              --restart unless-stopped \
+              --network hackathon-net \
+              -p 3000:3000 \
+              -e NEXT_PUBLIC_API_BASE_URL="${{ secrets.NEXT_PUBLIC_API_BASE_URL }}" \
+              ${DOCKER_USER}/hackathon-frontend:${TAG}
 
