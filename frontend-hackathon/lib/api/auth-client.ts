@@ -7,9 +7,11 @@ interface LoginResponse {
   onboardingComplete: boolean
 }
 
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:9000'
+
 export async function loginWithBackend(email: string, password: string = 'any'): Promise<LoginResponse> {
   try {
-    const response = await fetch('http://localhost:9000/api/auth/login', {
+    const response = await fetch(`${API_BASE_URL}/api/auth/login`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json'
