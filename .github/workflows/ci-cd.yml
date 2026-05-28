@@ -101,6 +101,13 @@ jobs:
               -e MONGO_URI="${{ secrets.MONGO_URI }}" \
               -e REDIS_HOST="${{ secrets.REDIS_HOST }}" \
               -e OPENAI_API_KEY="${{ secrets.OPENAI_API_KEY }}" \
+              -e KAFKA_BOOTSTRAP_SERVERS="${{ secrets.KAFKA_BOOTSTRAP_SERVERS }}" \
+              -e KAFKA_USER_EVENT_PROCESSOR_GROUP="${{ secrets.KAFKA_USER_EVENT_PROCESSOR_GROUP }}" \
+              -e KAFKA_USER_EVENTS_TOPIC="${{ secrets.KAFKA_USER_EVENTS_TOPIC }}" \
+              -e KAFKA_USER_EVENT_CONSUMER_CONCURRENCY="${{ secrets.KAFKA_USER_EVENT_CONSUMER_CONCURRENCY }}" \
+              -e STARTER_QUERY_LLM_ENABLED="${{ secrets.STARTER_QUERY_LLM_ENABLED }}" \
+              -e STARTER_QUERY_LLM_MODEL="${{ secrets.STARTER_QUERY_LLM_MODEL }}" \
+              -e STARTER_QUERY_LLM_TEMPERATURE="${{ secrets.STARTER_QUERY_LLM_TEMPERATURE }}" \
               ${DOCKER_USER}/hackathon-backend:${TAG}
 
             # ── Deploy Frontend ──
