@@ -1,40 +1,5 @@
 services:
   # =============================================
-  # MongoDB — document store + vector store
-  # =============================================
-  mongo:
-    image: mongo:7
-    restart: unless-stopped
-    ports:
-      - "27017:27017"
-    volumes:
-      - mongo_data:/data/db
-    healthcheck:
-      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-      start_period: 10s
-
-  # =============================================
-  # Redis — caching layer
-  # =============================================
-  redis:
-    image: redis:7-alpine
-    restart: unless-stopped
-    ports:
-      - "6379:6379"
-    volumes:
-      - redis_data:/data
-    command: redis-server --appendonly yes --maxmemory 256mb --maxmemory-policy allkeys-lru
-    healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-      start_period: 5s
-
-  # =============================================
   # Spring Boot Backend (Java 21)
   # =============================================
   backend:
@@ -49,11 +14,6 @@ services:
       REDIS_HOST: ${REDIS_HOST:-redis}
       OPENAI_API_KEY: ${OPENAI_API_KEY}
       JAVA_OPTS: "-XX:+UseG1GC -XX:MaxRAMPercentage=75.0"
-    depends_on:
-      mongo:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
     healthcheck:
       test: ["CMD-SHELL", "wget -qO- http://localhost:9000 || exit 1"]
       interval: 15s
