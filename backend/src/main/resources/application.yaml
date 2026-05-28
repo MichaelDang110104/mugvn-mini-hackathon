@@ -53,3 +53,8 @@ app:
     user-events-topic: ${KAFKA_USER_EVENTS_TOPIC:user-events.v1}
     user-event-processor-group: ${KAFKA_USER_EVENT_PROCESSOR_GROUP:user-event-processor}
     user-event-consumer-concurrency: ${KAFKA_USER_EVENT_CONSUMER_CONCURRENCY:1}
+
+logging:
+  level:
+    org.apache.kafka: ERROR
+    org.springframework.kafka: ERROR
