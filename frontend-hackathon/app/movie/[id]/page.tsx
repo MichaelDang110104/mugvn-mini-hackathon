@@ -7,6 +7,7 @@ import { ErrorStatePanel, SkeletonRow } from '@/components/states/StateComponent
 import { useMovieDetail, useMovieActions } from '@/features/movie-detail/useMovieDetail'
 import { useTrackEvent } from '@/hooks/useTrackEvent'
 import Image from 'next/image'
+import { useRouter } from 'next/navigation'
 import { Heart, Bookmark, Star, Play } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
@@ -20,6 +21,7 @@ function MovieDetailContent({ movieId }: { movieId: string }) {
   const { movie, similarMovies, relatedMovies, loading, error, refetch } = useMovieDetail(movieId)
   const { liked, saved, rating, like, save, setRating } = useMovieActions(movieId)
   const trackEvent = useTrackEvent()
+  const router = useRouter()
 
   if (loading) {
     return (
@@ -47,7 +49,7 @@ function MovieDetailContent({ movieId }: { movieId: string }) {
     }
 
     trackEvent.watchStart(movieId)
-    window.open(movie.playbackUrl, '_blank', 'noopener,noreferrer')
+    router.push(`/movie/${movieId}/watch`)
   }
 
   const handleLike = async () => {
