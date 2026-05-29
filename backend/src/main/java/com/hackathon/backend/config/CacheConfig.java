@@ -28,6 +28,7 @@ public class CacheConfig {
                 .cacheDefaults(base.entryTtl(Duration.ofMinutes(5)))
                 .withCacheConfiguration("queries", base.entryTtl(Duration.ofHours(1)))
                 .withCacheConfiguration("starterQuery", base.entryTtl(Duration.ofHours(24)))
+                .withCacheConfiguration("homeFeedConfig", base.entryTtl(Duration.ofHours(6)))
                 .build();
     }
 }
