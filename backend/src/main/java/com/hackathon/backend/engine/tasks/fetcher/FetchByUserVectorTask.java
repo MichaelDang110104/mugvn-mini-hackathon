@@ -6,6 +6,7 @@ import com.hackathon.backend.engine.entities.ScoredMovie;
 import com.hackathon.backend.engine.tasks.RecommendationTaskBase;
 import com.hackathon.backend.engine.utils.ObjectUtils;
 import com.hackathon.backend.services.VectorSearchService;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Component;
 
@@ -14,6 +15,7 @@ import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
 
+@Slf4j
 @Component
 public class FetchByUserVectorTask extends RecommendationTaskBase {
 
@@ -36,7 +38,7 @@ public class FetchByUserVectorTask extends RecommendationTaskBase {
 
     @Override
     protected Set<EngineMode> supportedModes() {
-        return Set.of(EngineMode.SEARCH, EngineMode.GENRE, EngineMode.SIMILAR_TO_MOVIE);
+        return Set.of(EngineMode.SEARCH, EngineMode.GENRE, EngineMode.SIMILAR_TO_MOVIE, EngineMode.USER_RECOMMEND);
     }
 
     @Override
@@ -46,6 +48,8 @@ public class FetchByUserVectorTask extends RecommendationTaskBase {
 
     @Override
     public CompletableFuture<RecommendationContext> execute(RecommendationContext ctx) {
+        log.info("[FetchByUserVectorTask] userId={} mode={} limit={}", ctx.getUserId(), ctx.getMode(), ctx.getLimit());
+
         return CompletableFuture.supplyAsync(() -> {
             List<String> excludedMovieIds = ctx.getExcludedMovieIds() != null ? ctx.getExcludedMovieIds() : List.of();
 
@@ -54,9 +58,10 @@ public class FetchByUserVectorTask extends RecommendationTaskBase {
                     .filter(result -> result.getVectorSearchScore() >= USER_VECTOR_MIN_SCORE)
                     .filter(result -> result.getMovie() != null && result.getMovie().getId() != null)
                     .filter(result -> !excludedMovieIds.contains(result.getMovie().getId().toHexString()))
-                    .map(result -> ObjectUtils.toScoredMovie(result, "user_profile_vector"))
+                    .map(result -> ObjectUtils.toScoredMovie(result, "content_based"))
                     .limit(ctx.getLimit() > 0 ? ctx.getLimit() : 10)
                     .toList();
+            log.info("[FetchByUserVectorTask] done — {} candidates", candidates.size());
             ctx.addCandidates(candidates);
             return ctx;
         }, ioExecutor);

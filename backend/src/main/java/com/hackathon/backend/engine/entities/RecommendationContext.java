@@ -10,6 +10,7 @@ import lombok.Setter;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.CopyOnWriteArrayList;
 
 @EqualsAndHashCode(callSuper = true)
 @Getter
@@ -52,6 +53,10 @@ public class RecommendationContext extends TaskContext {
         return base(userId).limit(limit).mode(EngineMode.RECENT_WATCH).build();
     }
 
+    public static RecommendationContext forUserRecommend(String userId, int limit) {
+        return base(userId).limit(limit).mode(EngineMode.USER_RECOMMEND).build();
+    }
+
     /**
      * Use when user choose specific genre
      * @param userId
@@ -84,12 +89,33 @@ public class RecommendationContext extends TaskContext {
 
 
     public boolean hasQuery() {
-        return this.searchQuery == null || this.searchQuery.isBlank();
+        return this.searchQuery != null && !this.searchQuery.isBlank();
+    }
+    public boolean isAuthenticated()  {
+        return userId != null && !userId.isBlank();
+    }
+
+    public boolean hasExplicitGenre() {
+        return genre != null && !genre.isBlank();
+    }
+
+    public boolean hasAnchorMovie()   {
+        return movieId != null && !movieId.isBlank();
+    }
+    public boolean hasUserProfile()   {
+        return profile != null
+            && profile.getProfileEmbedding() != null
+            && !profile.getProfileEmbedding().isEmpty();
+    }
+
+    public boolean hasRecentSearch()  {
+        return recentQueries != null
+            && !recentQueries.isEmpty();
     }
 
     public synchronized void addCandidates(List<ScoredMovie> movies) {
         if (candidates == null) {
-            candidates = new ArrayList<>();
+            candidates = new CopyOnWriteArrayList<>();
         }
         candidates.addAll(movies);
     }

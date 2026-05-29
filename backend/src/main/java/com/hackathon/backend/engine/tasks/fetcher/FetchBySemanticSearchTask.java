@@ -6,6 +6,7 @@ import com.hackathon.backend.engine.entities.ScoredMovie;
 import com.hackathon.backend.engine.tasks.RecommendationTaskBase;
 import com.hackathon.backend.engine.utils.ObjectUtils;
 import com.hackathon.backend.services.VectorSearchService;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Component;
 
@@ -14,6 +15,7 @@ import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
 
+@Slf4j
 @Component
 public class FetchBySemanticSearchTask extends RecommendationTaskBase {
 
@@ -43,12 +45,16 @@ public class FetchBySemanticSearchTask extends RecommendationTaskBase {
 
     @Override
     public CompletableFuture<RecommendationContext> execute(RecommendationContext ctx) {
+        int limit = ctx.getLimit() > 0 ? ctx.getLimit() : 10;
+        log.info("[FetchBySemanticSearchTask] userId={} mode={} query='{}' limit={}",
+                ctx.getUserId(), ctx.getMode(), ctx.getSearchQuery(), limit);
+
         return CompletableFuture.supplyAsync(() -> {
-            int limit = ctx.getLimit() > 0 ? ctx.getLimit() : 10;
             List<ScoredMovie> candidates = vectorSearchService.searchByQueryText(ctx.getSearchQuery(), limit)
                     .stream()
                     .map(r -> ObjectUtils.toScoredMovie(r, "semantic_search"))
                     .toList();
+            log.info("[FetchBySemanticSearchTask] done — {} candidates", candidates.size());
             ctx.addCandidates(candidates);
             return ctx;
         }, ioExecutor);

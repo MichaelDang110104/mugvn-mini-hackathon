@@ -5,16 +5,11 @@ import com.hackathon.backend.dto.SearchResponse.Availability;
 import com.hackathon.backend.dto.SearchResponse.MovieSummary;
 import com.hackathon.backend.dto.SearchResponse.SearchItem;
 import com.hackathon.backend.engine.RecommendationEngine;
-import com.hackathon.backend.engine.entities.EngineMode;
 import com.hackathon.backend.engine.entities.RecommendationContext;
-import com.hackathon.backend.models.MflixUser;
-import com.hackathon.backend.models.Movie;
 import com.hackathon.backend.services.EmbeddingService;
 import com.hackathon.backend.services.MovieSearchService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
-import org.springframework.security.authentication.AuthenticationManager;
-import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -82,40 +77,4 @@ public class SearchController {
     }
 
 
-    @GetMapping("/home")
-    public CompletableFuture<ResponseEntity<List<Movie>>> homeDefaultQuery(
-            @RequestParam(required = false) Integer limit,
-            @RequestParam(required = false) EngineMode mode,
-            @RequestParam String userId,
-            @RequestParam(required = false) String movieId,   // used by SIMILAR_TO_MOVIE
-            @RequestParam(required = false) String genre      // used by GENRE (optional override)
-    ) {
-        RecommendationContext recommendationContext = this.setContext(limit, mode, userId, movieId, genre);
-        return recommendationEngine.execute(recommendationContext).thenApply(
-                ResponseEntity::ok
-        );
-    }
-
-    private RecommendationContext setContext(Integer limit, EngineMode mode, String userId,
-                                             String movieId, String genre) throws IllegalArgumentException {
-        int effectiveLimit = (limit != null && limit > 0) ? limit : 10;
-        if (mode == EngineMode.TRENDING) {
-            return RecommendationContext.forTrending(userId, effectiveLimit);
-        }
-        if (mode == EngineMode.GENRE) {
-            return (genre != null && !genre.isBlank())
-                    ? RecommendationContext.forGenre(userId, genre, effectiveLimit)
-                    : RecommendationContext.forGenre(userId, effectiveLimit);
-        }
-        if (mode == EngineMode.SIMILAR_TO_MOVIE) {
-            if (movieId == null || movieId.isBlank()) {
-                throw new IllegalArgumentException("movieId is required for SIMILAR_TO_MOVIE mode");
-            }
-            return RecommendationContext.forSimilarToMovie(userId, movieId, effectiveLimit);
-        }
-        if (mode == EngineMode.RECENT_WATCH) {
-            return RecommendationContext.forRecentWatch(userId, effectiveLimit);
-        }
-        throw new IllegalArgumentException("Unsupported or missing engine mode: " + mode);
-    }
 }

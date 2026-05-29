@@ -13,7 +13,7 @@ public class SearchScoringStrategy extends ScoringStrategy {
         return Map.of(
                 "semantic_search",     1.0,
                 "keyword_search",      0.8,
-                "user_profile_vector", 0.7
+                "content_based",   0.7
         );
     }
 }

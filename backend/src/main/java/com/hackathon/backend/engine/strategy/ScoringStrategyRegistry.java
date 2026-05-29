@@ -8,6 +8,7 @@ import com.hackathon.backend.engine.strategy.impls.RecentWatchScoringStrategy;
 import com.hackathon.backend.engine.strategy.impls.SearchScoringStrategy;
 import com.hackathon.backend.engine.strategy.impls.SimilarToMovieScoringStrategy;
 import com.hackathon.backend.engine.strategy.impls.TrendingScoringStrategy;
+import com.hackathon.backend.engine.strategy.impls.UserRecommendScoringStrategy;
 import org.springframework.stereotype.Component;
 
 import java.util.List;
@@ -21,7 +22,8 @@ public class ScoringStrategyRegistry {
             EngineMode.TRENDING,         new TrendingScoringStrategy(),
             EngineMode.GENRE,            new GenreScoringStrategy(),
             EngineMode.SIMILAR_TO_MOVIE, new SimilarToMovieScoringStrategy(),
-            EngineMode.RECENT_WATCH,     new RecentWatchScoringStrategy()
+            EngineMode.RECENT_WATCH,     new RecentWatchScoringStrategy(),
+            EngineMode.USER_RECOMMEND,   new UserRecommendScoringStrategy()
     );
 
     private static final ScoringStrategy defaultStrategy = new ScoringStrategy() {

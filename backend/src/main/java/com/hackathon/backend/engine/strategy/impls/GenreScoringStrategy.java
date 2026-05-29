@@ -10,7 +10,7 @@ public class GenreScoringStrategy extends ScoringStrategy {
     protected Map<String, Double> weights() {
         return Map.of(
                 "genre",               1.2,
-                "user_profile_vector", 0.9,
+                "content_based",  0.9,
                 "trending",            0.6
         );
     }

@@ -36,26 +36,32 @@ public class FetchByGenreTask extends RecommendationTaskBase {
 
     @Override
     protected Set<EngineMode> supportedModes() {
-        return Set.of(EngineMode.GENRE);
+        return Set.of(EngineMode.GENRE, EngineMode.TRENDING, EngineMode.USER_RECOMMEND);
     }
 
     @Override
     public boolean shouldSkip(RecommendationContext ctx) {
         if (super.shouldSkip(ctx)) return true;
-        boolean hasExplicitGenre = ctx.getGenre() != null && !ctx.getGenre().isBlank();
-        boolean hasTopGenres = ctx.getProfile() != null
+        return resolveGenres(ctx).isEmpty();
+    }
+
+    private List<String> resolveGenres(RecommendationContext ctx) {
+        if (ctx.getGenre() != null && !ctx.getGenre().isBlank()) {
+            return List.of(ctx.getGenre());
+        }
+        if (ctx.getProfile() != null
                 && ctx.getProfile().getTopGenres() != null
-                && !ctx.getProfile().getTopGenres().isEmpty();
-        return !hasExplicitGenre && !hasTopGenres;
+                && !ctx.getProfile().getTopGenres().isEmpty()) {
+            return ctx.getProfile().getTopGenres();
+        }
+        return List.of();
     }
 
     @Override
     public CompletableFuture<RecommendationContext> execute(RecommendationContext ctx) {
         int limit = ctx.getLimit() > 0 ? ctx.getLimit() : 20;
 
-        List<String> genres = (ctx.getGenre() != null && !ctx.getGenre().isBlank())
-                ? List.of(ctx.getGenre())
-                : ctx.getProfile().getTopGenres();
+        List<String> genres = resolveGenres(ctx);
 
         log.info("[FetchByGenreTask] userId={} mode={} genres={} limit={}",
                 ctx.getUserId(), ctx.getMode(), genres, limit);

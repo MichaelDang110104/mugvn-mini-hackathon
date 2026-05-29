@@ -6,6 +6,7 @@ import com.hackathon.backend.engine.entities.ScoredMovie;
 import com.hackathon.backend.engine.tasks.RecommendationTaskBase;
 import com.hackathon.backend.engine.utils.ObjectUtils;
 import com.hackathon.backend.models.EmbeddedMovie;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.data.mongodb.core.MongoTemplate;
 import org.springframework.data.mongodb.core.query.TextCriteria;
@@ -18,6 +19,7 @@ import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
 
+@Slf4j
 @Component
 public class FetchByKeywordSearchTask extends RecommendationTaskBase {
 
@@ -47,9 +49,11 @@ public class FetchByKeywordSearchTask extends RecommendationTaskBase {
 
     @Override
     public CompletableFuture<RecommendationContext> execute(RecommendationContext ctx) {
-        return CompletableFuture.supplyAsync(() -> {
-            int limit = ctx.getLimit() > 0 ? ctx.getLimit() : 10;
+        int limit = ctx.getLimit() > 0 ? ctx.getLimit() : 10;
+        log.info("[FetchByKeywordSearchTask] userId={} mode={} query='{}' limit={}",
+                ctx.getUserId(), ctx.getMode(), ctx.getSearchQuery(), limit);
 
+        return CompletableFuture.supplyAsync(() -> {
             TextCriteria textCriteria = TextCriteria.forDefaultLanguage()
                     .caseSensitive(false)
                     .matching(ctx.getSearchQuery());
@@ -63,6 +67,7 @@ public class FetchByKeywordSearchTask extends RecommendationTaskBase {
                 candidates.add(ObjectUtils.toScoredMovie(results.get(i), "keyword_search", 1.0 / (i + 1)));
             }
 
+            log.info("[FetchByKeywordSearchTask] done — {} candidates", candidates.size());
             ctx.addCandidates(candidates);
             return ctx;
         }, ioExecutor);

@@ -5,7 +5,7 @@ import java.util.concurrent.ConcurrentHashMap;
 
 public class TaskContext {
     private boolean success = true;
-    private int timeoutMs = 300;
+    private int timeoutMs = 1000;
     private final Map<String, String> errors = new ConcurrentHashMap<>();
     private final Map<String, Object> extra  = new ConcurrentHashMap<>();
 
