@@ -78,6 +78,45 @@ export interface BackendRecommendationResponse {
   generatedAt: string
 }
 
+// --- GET /api/home response (HomeFeedResponse) ---
+
+export type BackendSectionType = 'TRENDING' | 'RECENT_WATCH' | 'USER_RECOMMENDATION' | 'SIMILAR_TO_MOVIE' | 'GENRE'
+
+export interface BackendMovie {
+  id: string
+  title: string
+  plot: string | null
+  fullplot: string | null
+  genres: string[] | null
+  cast: string[] | null
+  directors: string[] | null
+  writers: string[] | null
+  languages: string[] | null
+  countries: string[] | null
+  runtime: number | null
+  year: number | null
+  rated: string | null
+  type: string | null
+  poster: string | null
+  released: string | null
+  imdb: { rating: number | null; votes: number | null; id: number | null } | null
+  tomatoes: {
+    viewer: { rating: number | null; numReviews: number | null; meter: number | null } | null
+    critic: { rating: number | null; numReviews: number | null; meter: number | null } | null
+  } | null
+}
+
+export interface BackendHomeSection {
+  sectionId: string
+  title: string
+  type: BackendSectionType
+  movies: BackendMovie[]
+}
+
+export interface BackendHomeFeedResponse {
+  sections: BackendHomeSection[]
+}
+
 export interface BackendOnboardingRequest {
   sessionId: string
   selectedGenres: string[]

@@ -4,14 +4,11 @@ import React, { Suspense } from 'react'
 import { AppHeader } from '@/components/layout/AppHeader'
 import { HeroBanner } from '@/components/movie/HeroBanner'
 import { MovieRow } from '@/components/movie/MovieRow'
-import { QuickStateStrip, ModeBadge } from '@/components/feedback/Chips'
 import { SkeletonRow, ErrorStatePanel } from '@/components/states/StateComponents'
 import { useHomeData } from '@/features/home/useHomeData'
-import { useTrackEvent } from '@/hooks/useTrackEvent'
 
 export default function HomePage() {
-  const { sections, loading, error, recommendationMode, refetch } = useHomeData()
-  const trackEvent = useTrackEvent()
+  const { sections, loading, error, refetch } = useHomeData()
 
   if (loading && sections.length === 0) {
     return (
@@ -46,21 +43,12 @@ export default function HomePage() {
       {/* Hero Banner */}
       {featuredMovie && <HeroBanner movie={featuredMovie} />}
 
-      {/* Quick State Indicator */}
-      <QuickStateStrip mode={recommendationMode} />
-
-      {/* Recommendation Mode Badge */}
-      <div className="px-4 py-4 flex items-center gap-2">
-        <span className="text-sm text-gray-400">Recommendation Mode:</span>
-        <ModeBadge mode={recommendationMode} />
-      </div>
-
       {/* Sections */}
       <div className="space-y-4 pb-12">
         {sections.map(section => (
           <Suspense key={section.id} fallback={<SkeletonRow />}>
             {section.movies && section.movies.length > 0 ? (
-              <MovieRow title={section.title} movies={section.movies} screen="home" component={section.id} reasonChip={section.reasonChip} />
+              <MovieRow title={section.title} movies={section.movies} screen="home" component={section.id} />
             ) : null}
           </Suspense>
         ))}

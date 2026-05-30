@@ -12,6 +12,8 @@ import type {
     BackendSearchResponse,
     BackendMovieDetailResponse,
     BackendRecommendationResponse,
+    BackendHomeFeedResponse,
+    BackendMovie,
     BackendEventRequest,
     BackendEventResponse,
     BackendOnboardingRequest,
@@ -78,6 +80,20 @@ function searchItemToMovieItem(item: SearchItem): MovieItem {
     }
 }
 
+function backendMovieToMovieItem(movie: BackendMovie): MovieItem {
+    return {
+        id: movie.id || '',
+        title: movie.title || 'Untitled',
+        year: movie.year ?? 0,
+        genres: movie.genres || [],
+        rating: movie.imdb?.rating ?? 0,
+        posterUrl: movie.poster || PLACEHOLDER_POSTER,
+        overview: movie.plot || movie.fullplot || '',
+        backdropUrl: movie.poster || PLACEHOLDER_BACKDROP,
+        language: movie.languages?.[0] || '',
+    }
+}
+
 function movieDetailToMovieItem(detail: MovieDetail): MovieItem & { language: string; overview: string; playbackUrl: string | null } {
     return {
         id: detail.id || '',
@@ -106,6 +122,17 @@ export interface RecommendationsResponse {
     sessionId: string
     recommendationMode: 'semantic' | 'fallback_text' | 'personalized' | 'cold_start'
     sections: RecommendationSection[]
+}
+
+export interface HomeFeedSection {
+    sectionId: string
+    title: string
+    type: string
+    movies: MovieItem[]
+}
+
+export interface HomeFeedResponse {
+    sections: HomeFeedSection[]
 }
 
 export interface SearchResponse {
@@ -282,6 +309,36 @@ export async function fetchRecommendations(input: FetchRecommendationsInput): Pr
         sessionId,
         recommendationMode: data.mode,
         sections,
+    }
+}
+
+/**
+ * GET /api/home
+ * Fetch home feed with pre-built sections from the backend.
+ * The backend returns sections configured via HomeFeedConfig, each with
+ * sectionId, title, type (SectionType), and a list of Movie objects.
+ */
+export async function fetchHomeFeed(): Promise<HomeFeedResponse> {
+    const response = await fetch(`${API_BASE_URL}/api/home`, {
+        method: 'GET',
+        headers: buildHeaders(),
+    })
+
+    captureSessionFromResponse(response)
+
+    if (!response.ok) {
+        throw new Error(`Home feed request failed with status ${response.status}`)
+    }
+
+    const data: BackendHomeFeedResponse = await response.json()
+
+    return {
+        sections: (data.sections || []).map(section => ({
+            sectionId: section.sectionId,
+            title: section.title,
+            type: section.type,
+            movies: (section.movies || []).map(backendMovieToMovieItem),
+        })),
     }
 }
 
