@@ -1,7 +1,6 @@
 package com.hackathon.backend.dto;
 
 import com.hackathon.backend.enums.SectionType;
-import com.hackathon.backend.models.Movie;
 import lombok.*;
 import java.util.List;
 
@@ -20,6 +19,6 @@ public class HomeFeedResponse {
         private String sectionId;
         private String title;
         private SectionType type;
-        private List<Movie> movies;
+        private List<MovieResponse> movies;
     }
 }

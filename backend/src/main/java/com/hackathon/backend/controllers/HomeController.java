@@ -1,10 +1,10 @@
 package com.hackathon.backend.controllers;
 
 import com.hackathon.backend.dto.HomeFeedResponse;
+import com.hackathon.backend.dto.MovieResponse;
 import com.hackathon.backend.services.HomeFeedService;
 import com.hackathon.backend.services.UserIdResolver;
 import lombok.RequiredArgsConstructor;
-import com.hackathon.backend.models.Movie;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -37,7 +37,7 @@ public class HomeController {
     }
 
     @GetMapping("/home/sections/{sectionId}")
-    public CompletableFuture<ResponseEntity<List<Movie>>> loadSection(
+    public CompletableFuture<ResponseEntity<List<MovieResponse>>> loadSection(
             @PathVariable String sectionId,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int limit) {

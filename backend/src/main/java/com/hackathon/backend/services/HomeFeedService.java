@@ -2,6 +2,7 @@ package com.hackathon.backend.services;
 
 import com.hackathon.backend.dto.HomeFeedResponse;
 import com.hackathon.backend.dto.HomeFeedResponse.HomeSection;
+import com.hackathon.backend.dto.MovieResponse;
 import com.hackathon.backend.dto.SectionSpec;
 import com.hackathon.backend.engine.RecommendationEngine;
 import com.hackathon.backend.engine.entities.RecommendationContext;
@@ -73,7 +74,7 @@ public class HomeFeedService {
                                     .sectionId(sectionSpec.getSectionId())
                                     .title(sectionSpec.getTitle())
                                     .type(sectionSpec.getType())
-                                    .movies(movies)
+                                    .movies(movies.stream().map(MovieResponse::from).collect(Collectors.toList()))
                                     .build())
                             .exceptionally(exception -> {
                                 if (exception.getCause() instanceof TimeoutException) {
@@ -180,7 +181,7 @@ public class HomeFeedService {
                 .build();
     }
 
-    public CompletableFuture<List<Movie>> loadSection(String userId, String sectionId, int page, int limit) {
+    public CompletableFuture<List<MovieResponse>> loadSection(String userId, String sectionId, int page, int limit) {
         String audience = userId != null ? "authenticated" : "anonymous";
         HomeFeedConfig config = homeFeedConfigRepository.findByAudienceAndActiveTrue(audience)
                 .orElseThrow(() -> new IllegalStateException("No active home feed config for audience: " + audience));
@@ -204,8 +205,9 @@ public class HomeFeedService {
 
         return recommendationEngine.execute(context).thenApply(movies -> {
             int fromIndex = page * limit;
-            if (fromIndex >= movies.size()) return List.of();
-            return movies.subList(fromIndex, Math.min(fromIndex + limit, movies.size()));
+            if (fromIndex >= movies.size()) return List.<MovieResponse>of();
+            return movies.subList(fromIndex, Math.min(fromIndex + limit, movies.size()))
+                    .stream().map(MovieResponse::from).collect(Collectors.toList());
         });
     }
 
