@@ -21,7 +21,7 @@ public class StarterRecommendationRefreshJob {
     private final UserOnboardingAnswersRepository answersRepository;
     private final StarterRecommendationService starterRecommendationService;
 
-    @Scheduled(cron = "${recommendation.starter-refresh-cron:0 0 0 * * *}")
+    @Scheduled(fixedRate = 10 * 60 * 1000)
     public void refreshEligibleProfiles() {
         for (RecommendationProfile profile : profileRepository.findAll()) {
             if (!shouldRefresh(profile)) {

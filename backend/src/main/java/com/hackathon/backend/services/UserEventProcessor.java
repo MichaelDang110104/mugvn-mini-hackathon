@@ -58,13 +58,22 @@ public class UserEventProcessor {
         }
 
         if (userId != null && isStrongPositive(type, message.getEventValue())) {
-            recommendationProfileRepository.findByUserId(userId).ifPresent(profile -> {
-                int pending = profile.getPendingStrongPositiveEvents() == null ? 0 : profile.getPendingStrongPositiveEvents();
-                int total = profile.getStrongPositiveEventCount() == null ? 0 : profile.getStrongPositiveEventCount();
-                profile.setPendingStrongPositiveEvents(pending + 1);
-                profile.setStrongPositiveEventCount(total + 1);
-                recommendationProfileRepository.save(profile);
-            });
+            RecommendationProfile profile = recommendationProfileRepository.findById(userId)
+                    .orElseGet(() -> RecommendationProfile.builder()
+                            .id(userId)
+                            .userId(userId)
+                            .sessionId(message.getSessionId())
+                            .profileSource("behavior")
+                            .strongPositiveEventCount(0)
+                            .pendingStrongPositiveEvents(0)
+                            .profileVersion(1L)
+                            .build());
+
+            int pending = profile.getPendingStrongPositiveEvents() == null ? 0 : profile.getPendingStrongPositiveEvents();
+            int total = profile.getStrongPositiveEventCount() == null ? 0 : profile.getStrongPositiveEventCount();
+            profile.setPendingStrongPositiveEvents(pending + 1);
+            profile.setStrongPositiveEventCount(total + 1);
+            recommendationProfileRepository.save(profile);
         }
 
         if (userId != null && profileUpdatePolicy.shouldRecompute(type, message.getEventValue())) {

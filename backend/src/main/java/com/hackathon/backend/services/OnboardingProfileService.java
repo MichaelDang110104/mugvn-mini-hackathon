@@ -14,6 +14,8 @@ public final class OnboardingProfileService {
         Instant now = Instant.now();
 
         return RecommendationProfile.builder()
+                // Use a stable document identity: one profile doc per user.
+                .id(userId)
                 .userId(userId)
                 .sessionId(request.getSessionId())
                 .topGenres(request.getSelectedGenres())
