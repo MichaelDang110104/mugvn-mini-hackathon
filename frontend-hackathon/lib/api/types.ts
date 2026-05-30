@@ -82,6 +82,11 @@ export interface BackendRecommendationResponse {
 
 export type BackendSectionType = 'TRENDING' | 'RECENT_WATCH' | 'USER_RECOMMENDATION' | 'SIMILAR_TO_MOVIE' | 'GENRE'
 
+/**
+ * Matches backend MovieResponse DTO.
+ * The backend now returns MovieResponse (with id as a hex string)
+ * instead of raw Movie entities.
+ */
 export interface BackendMovie {
   id: string
   title: string
@@ -98,11 +103,19 @@ export interface BackendMovie {
   rated: string | null
   type: string | null
   poster: string | null
+  lastupdated: string | null
   released: string | null
+  numMflixComments: number | null
+  awards: { wins: number | null; nominations: number | null; text: string | null } | null
   imdb: { rating: number | null; votes: number | null; id: number | null } | null
   tomatoes: {
     viewer: { rating: number | null; numReviews: number | null; meter: number | null } | null
     critic: { rating: number | null; numReviews: number | null; meter: number | null } | null
+    dvd: string | null
+    lastUpdated: string | null
+    rotten: number | null
+    fresh: number | null
+    production: string | null
   } | null
 }
 

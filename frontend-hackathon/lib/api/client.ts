@@ -343,6 +343,35 @@ export async function fetchHomeFeed(): Promise<HomeFeedResponse> {
 }
 
 /**
+ * GET /api/home/sections/{sectionId}
+ * Load additional movies for a specific home feed section with pagination.
+ * The backend returns List<MovieResponse> (same shape as BackendMovie).
+ */
+export async function fetchHomeSectionMovies(
+    sectionId: string,
+    page: number = 0,
+    limit: number = 20,
+): Promise<MovieItem[]> {
+    const params = new URLSearchParams()
+    params.set('page', String(page))
+    params.set('limit', String(limit))
+
+    const response = await fetch(`${API_BASE_URL}/api/home/sections/${encodeURIComponent(sectionId)}?${params}`, {
+        method: 'GET',
+        headers: buildHeaders(),
+    })
+
+    captureSessionFromResponse(response)
+
+    if (!response.ok) {
+        throw new Error(`Home section request failed with status ${response.status}`)
+    }
+
+    const data: BackendMovie[] = await response.json()
+    return (data || []).map(backendMovieToMovieItem)
+}
+
+/**
  * GET /api/movies/search
  * Fetch search results.
  */
