@@ -1,0 +1,43 @@
+name: Terraform Apply (prod)
+
+on:
+  push:
+    branches:
+      - pipeline
+    paths:
+      - 'infra/terraform/**'
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_TERRAFORM_ROLE_ARN }}
+          aws-region: ${{ secrets.AWS_REGION }}
+
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.15.5
+
+      - name: Terraform init
+        run: |
+          terraform -chdir=infra/terraform/environments/prod init \
+            -backend-config="bucket=${TF_STATE_BUCKET}" \
+            -backend-config="dynamodb_table=${TF_LOCK_TABLE}" \
+            -backend-config="key=prod/terraform.tfstate" \
+            -backend-config="region=${AWS_REGION}"
+        env:
+          TF_INPUT: 'false'
+          TF_STATE_BUCKET: ${{ secrets.TF_STATE_BUCKET }}
+          TF_LOCK_TABLE: ${{ secrets.TF_LOCK_TABLE }}
+
+      - name: Terraform apply
+        run: terraform -chdir=infra/terraform/environments/prod apply -auto-approve
