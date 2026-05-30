@@ -23,7 +23,9 @@ import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
 import java.util.concurrent.TimeoutException;
@@ -90,9 +92,25 @@ public class HomeFeedService {
                     .orTimeout(5, TimeUnit.SECONDS)
                     .exceptionally(exception -> null)
                     .thenApplyAsync(ignored -> {
+                        // Dedup across sections: first section to claim a movieId wins.
+                        // Within each section the rerank already merged duplicates with a
+                        // combined score, so we only need to track ids across section boundaries.
+                        Set<String> seenIds = new HashSet<>();
                         List<HomeSection> sections = futures.stream()
                                 .map(future -> future.getNow(null))
                                 .filter(section -> section != null && section.getMovies() != null && !section.getMovies().isEmpty())
+                                .map(section -> {
+                                    List<MovieResponse> deduped = section.getMovies().stream()
+                                            .filter(m -> m.getId() != null && seenIds.add(m.getId()))
+                                            .collect(Collectors.toList());
+                                    return HomeSection.builder()
+                                            .sectionId(section.getSectionId())
+                                            .title(section.getTitle())
+                                            .type(section.getType())
+                                            .movies(deduped)
+                                            .build();
+                                })
+                                .filter(section -> !section.getMovies().isEmpty())
                                 .collect(Collectors.toList());
                         return HomeFeedResponse.builder().sections(sections).build();
                     }, ioExecutor);

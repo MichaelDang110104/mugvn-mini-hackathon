@@ -11,7 +11,7 @@ public class GenreScoringStrategy extends ScoringStrategy {
         return Map.of(
                 "genre",               1.2,
                 "content_based",  0.9,
-                "trending",            0.6
+                "trending",            0.3
         );
     }
 }
