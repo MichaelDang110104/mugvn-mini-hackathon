@@ -2,6 +2,7 @@ package com.hackathon.backend.engine.tasks.fetcher;
 
 import com.hackathon.backend.engine.entities.EngineMode;
 import com.hackathon.backend.engine.entities.RecommendationContext;
+import com.hackathon.backend.engine.entities.ScoredMovie;
 import com.hackathon.backend.engine.tasks.RecommendationTaskBase;
 import com.hackathon.backend.engine.utils.ObjectUtils;
 import com.hackathon.backend.repositories.MovieStatsRepository;
@@ -45,7 +46,7 @@ public class FetchTrendingTask extends RecommendationTaskBase {
         log.info("[FetchTrendingTask] userId={} mode={} limit={}", ctx.getUserId(), ctx.getMode(), limit);
 
         return CompletableFuture.supplyAsync(() -> {
-            List<com.hackathon.backend.engine.entities.ScoredMovie> trending = movieStatsRepository
+            List<ScoredMovie> trending = movieStatsRepository
                     .findAll(PageRequest.of(0, limit, Sort.by("trendingScore").descending()))
                     .stream()
                     .map(ObjectUtils::toScoredMovie)

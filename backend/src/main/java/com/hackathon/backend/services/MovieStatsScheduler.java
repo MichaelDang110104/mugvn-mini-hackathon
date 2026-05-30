@@ -36,7 +36,7 @@ public class MovieStatsScheduler {
     private final MovieRepository movieRepository;
     private final TrendingScoreCalculator calculator;
 
-    @Scheduled(cron = "5 5 * * * *")
+    @Scheduled(fixedRate = 60 * 60 * 1000)
     public void buildMovieStats() {
         log.info("Starting movie stats rebuild");
         Instant cutoff7d = Instant.now().minus(7, ChronoUnit.DAYS);
@@ -123,7 +123,7 @@ public class MovieStatsScheduler {
     }
 
     private Map<String, Map<String, Long>> aggregateEventCounts(Instant since) {
-        Criteria criteria = where("movieId").exists(true).and("movieId").ne(null);
+        Criteria criteria = where("movieId").exists(true).ne(null);
         if (since != null) {
             criteria = criteria.and("timestamp").gte(since);
         }
