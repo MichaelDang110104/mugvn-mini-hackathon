@@ -32,11 +32,12 @@ spring:
         spring.json.value.default.type: com.hackathon.backend.kafka.UserEventMessageV1
   data:
     redis:
-      # Provide REDIS_HOST via env.
       host: ${REDIS_HOST}
       port: 6379
+      password: 11012004
   cache:
     type: redis
+
 server:
   port: 8686
 
