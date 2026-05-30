@@ -32,7 +32,11 @@ public class SwaggerConfig {
                                 .url("https://opensource.org/licenses/MIT")))
                 .servers(List.of(
                         new Server().url("http://localhost:8080")
-                                .description("Local Development Server")))
+                                .description("Local Development Server"),
+                        new Server().url("https://backend.fproject.site/")
+                                .description("Hosting Development Server")
+                        ))
+
                 .addSecurityItem(new SecurityRequirement().addList("BearerAuth"))
                 .components(new Components()
                         .addSecuritySchemes("BearerAuth",
