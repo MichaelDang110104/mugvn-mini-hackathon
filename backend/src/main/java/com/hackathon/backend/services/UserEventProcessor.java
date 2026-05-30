@@ -3,11 +3,9 @@ package com.hackathon.backend.services;
 import com.hackathon.backend.enums.EventType;
 import com.hackathon.backend.kafka.UserEventMessageV1;
 import com.hackathon.backend.models.AppUser;
-import com.hackathon.backend.models.MflixUser;
 import com.hackathon.backend.models.RecommendationProfile;
 import com.hackathon.backend.models.UserEvent;
 import com.hackathon.backend.repositories.AppUserRepository;
-import com.hackathon.backend.repositories.MflixUserRepository;
 import com.hackathon.backend.repositories.RecommendationProfileRepository;
 import com.hackathon.backend.repositories.UserEventRepository;
 import lombok.RequiredArgsConstructor;
@@ -16,7 +14,6 @@ import org.springframework.dao.DuplicateKeyException;
 import org.springframework.stereotype.Service;
 
 import java.time.Instant;
-import java.util.Optional;
 
 @Slf4j
 @Service
@@ -25,7 +22,7 @@ public class UserEventProcessor {
 
     private final UserEventRepository userEventRepository;
     private final AppUserRepository appUserRepository;
-    private final MflixUserRepository mflixUserRepository;
+    private final UserIdResolver userIdResolver;
     private final RecommendationProfileRepository recommendationProfileRepository;
     private final UserEmbeddingService userEmbeddingService;
     private final ProfileUpdatePolicy profileUpdatePolicy;
@@ -95,11 +92,7 @@ public class UserEventProcessor {
 
     private String resolveUserId(UserEventMessageV1 message) {
         if (message.getUserId() != null && !message.getUserId().isBlank()) {
-            Optional<MflixUser> mflixUser = mflixUserRepository.findByEmail(message.getUserId());
-            if (mflixUser.isPresent()) {
-                return mflixUser.get().getId().toHexString();
-            }
-            return message.getUserId();
+            return userIdResolver.resolve(message.getUserId());
         }
 
         if (message.getSessionId() == null || message.getSessionId().isBlank()) {

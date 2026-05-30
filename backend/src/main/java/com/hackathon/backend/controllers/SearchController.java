@@ -8,6 +8,7 @@ import com.hackathon.backend.engine.RecommendationEngine;
 import com.hackathon.backend.engine.entities.RecommendationContext;
 import com.hackathon.backend.services.EmbeddingService;
 import com.hackathon.backend.services.MovieSearchService;
+import com.hackathon.backend.services.UserIdResolver;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -23,6 +24,7 @@ public class SearchController {
     private final MovieSearchService movieSearchService;
     private final RecommendationEngine recommendationEngine;
     private final EmbeddingService embeddingService;
+    private final UserIdResolver userIdResolver;
 
     @GetMapping("/search/movies")
     public ResponseEntity<SearchResponse> search(
@@ -42,7 +44,7 @@ public class SearchController {
             @RequestHeader(value = "X-User-Id", required = false) String userId,
             @RequestHeader(value = "X-Session-Id", required = false) String sessionId) {
 
-        String effectiveUserId = userId != null ? userId : sessionId;
+        String effectiveUserId = userIdResolver.resolve(userId != null ? userId : sessionId);
         int effectiveLimit = (limit != null && limit > 0) ? limit : 10;
 
         RecommendationContext ctx = RecommendationContext.forSearch(effectiveUserId, q, effectiveLimit);

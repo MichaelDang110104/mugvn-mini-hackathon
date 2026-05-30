@@ -42,7 +42,7 @@ public class LoadRecommendationProfileTask extends RecommendationTaskBase {
     public CompletableFuture<RecommendationContext> execute(RecommendationContext ctx) {
         log.info("[LoadRecommendationProfileTask] userId={} mode={}", ctx.getUserId(), ctx.getMode());
 
-        RecommendationProfile profile = recommendationProfileRepository.findById(ctx.getUserId()).orElse(null);
+        RecommendationProfile profile = recommendationProfileRepository.findByUserId(ctx.getUserId()).orElse(null);
         if (profile != null) {
             ctx.setProfile(profile);
             if (profile.getProfileEmbedding() != null && !profile.getProfileEmbedding().isEmpty()) {

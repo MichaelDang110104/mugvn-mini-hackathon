@@ -2,6 +2,7 @@ package com.hackathon.backend.controllers;
 
 import com.hackathon.backend.dto.HomeFeedResponse;
 import com.hackathon.backend.services.HomeFeedService;
+import com.hackathon.backend.services.UserIdResolver;
 import lombok.RequiredArgsConstructor;
 import com.hackathon.backend.models.Movie;
 import org.springframework.http.ResponseEntity;
@@ -23,13 +24,15 @@ import java.util.concurrent.CompletableFuture;
 public class HomeController {
 
     private final HomeFeedService homeFeedService;
+    private final UserIdResolver userIdResolver;
 
     @GetMapping("/home")
     public CompletableFuture<ResponseEntity<HomeFeedResponse>> home() {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-        String userId = (authentication != null && authentication.getPrincipal() instanceof UserDetails userDetails)
+        String principal = (authentication != null && authentication.getPrincipal() instanceof UserDetails userDetails)
                 ? userDetails.getUsername()
                 : null;
+        String userId = userIdResolver.resolve(principal);
         return homeFeedService.buildFeed(userId).thenApply(ResponseEntity::ok);
     }
 
@@ -39,9 +42,10 @@ public class HomeController {
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int limit) {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-        String userId = (authentication != null && authentication.getPrincipal() instanceof UserDetails userDetails)
+        String principal = (authentication != null && authentication.getPrincipal() instanceof UserDetails userDetails)
                 ? userDetails.getUsername()
                 : null;
+        String userId = userIdResolver.resolve(principal);
         return homeFeedService.loadSection(userId, sectionId, page, limit)
                 .thenApply(ResponseEntity::ok);
     }
