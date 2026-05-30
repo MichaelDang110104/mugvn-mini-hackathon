@@ -20,7 +20,7 @@ public interface UserEventRepository extends MongoRepository<UserEvent, String> 
     List<UserEvent> findByUserIdOrderByTimestampDesc(String userId);
 
     @Query(value = "{ 'userId': ?0, 'movieId': { $exists: true, $ne: null }, 'eventType': { $in: ?1 } }", fields = "{ 'movieId': 1, '_id': 0 }")
-    List<UserEvent> findSeenMovieEventsByUserId(String userId, List<String> eventTypes);
+    List<UserEvent> findSeenMovieEventsByUserId(String userId, List<EventType> eventTypes);
 
     List<UserEvent> findByUserIdAndEventTypeOrderByTimestampDesc(String userId, EventType eventType, Pageable pageable);
 }

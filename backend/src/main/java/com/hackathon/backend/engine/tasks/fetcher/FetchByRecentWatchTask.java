@@ -61,33 +61,27 @@ public class FetchByRecentWatchTask extends RecommendationTaskBase {
                     .findByUserIdAndEventTypeOrderByTimestampDesc(
                             ctx.getUserId(), EventType.WATCH_START, PageRequest.of(0, limit * 5));
 
-            // Filter: keep events with meaningful progress (1–89%)
-            List<UserEvent> filtered = events.stream()
-                    .filter(e -> e.getEventValue() != null && e.getEventValue() > 0 && e.getEventValue() < 90)
-                    .toList();
-
-            // Dedup by movieId — keep the first (latest timestamp) per movieId
+            // Dedup by movieId — events are ordered by timestamp desc, so keep the latest per movie.
+            // No watch-progress signal is captured for watch_start events, so we rank purely by recency.
             Map<String, UserEvent> deduped = new LinkedHashMap<>();
-            for (UserEvent event : filtered) {
+            for (UserEvent event : events) {
                 if (event.getMovieId() != null) {
                     deduped.putIfAbsent(event.getMovieId(), event);
                 }
             }
 
-            // Score each unique event
+            // Score each unique event by recency only
             List<ScoredMovie> candidates = new ArrayList<>(deduped.size());
             Instant now = Instant.now();
             for (UserEvent event : deduped.values()) {
-                double progressScore = 1.0 - (event.getEventValue() / 100.0);
                 long hoursAgo = event.getTimestamp() != null
                         ? Duration.between(event.getTimestamp(), now).toHours()
                         : 168L;
                 double recencyScore = Math.max(0.0, 1.0 - (hoursAgo / 168.0));
-                double score = progressScore * 0.4 + recencyScore * 0.6;
 
                 candidates.add(ScoredMovie.builder()
                         .movieId(event.getMovieId())
-                        .score(score)
+                        .score(recencyScore)
                         .source("recent_watch")
                         .build());
             }

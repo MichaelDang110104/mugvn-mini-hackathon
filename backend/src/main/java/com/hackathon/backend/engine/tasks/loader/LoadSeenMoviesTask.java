@@ -31,10 +31,8 @@ public class LoadSeenMoviesTask extends RecommendationTaskBase {
         return super.shouldSkip(ctx) || ctx.getUserId() == null || ctx.getUserId().isBlank();
     }
 
-    private static final List<String> SEEN_EVENT_TYPES = List.of(
-            EventType.WATCH_START.getValue(),
-            EventType.LIKE.getValue(),
-            EventType.RATING.getValue()
+    private static final List<EventType> SEEN_EVENT_TYPES = List.of(
+            EventType.WATCH_START
     );
 
     @Override
