@@ -1,19 +1,12 @@
 /**
  * Mock Movie Database
- * 50 diverse movies for recommendation system
+ * Re-exports MovieItem type from the central types module.
+ * Retains mock data for offline/development fallback.
  */
 
-export interface MovieItem {
-  id: string
-  title: string
-  year: number
-  genres: string[]
-  rating: number
-  posterUrl: string
-  overview: string
-  backdropUrl: string
-  language: string
-}
+// Re-export the canonical MovieItem type so existing imports still work
+export type { MovieItem } from './types'
+import type { MovieItem } from './types'
 
 const GENRES = ['Drama', 'Action', 'Comedy', 'Thriller', 'Sci-Fi', 'Horror', 'Animation', 'Romance', 'Adventure', 'Mystery']
 

@@ -1,0 +1,14 @@
+target/
+.idea/
+.git/
+*.iml
+*.iws
+*.ipr
+.settings/
+.classpath
+.project
+.factorypath
+.springBeans
+.sts4-cache
+docs/
+*.md

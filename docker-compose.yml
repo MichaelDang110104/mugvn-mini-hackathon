@@ -1,0 +1,30 @@
+services:
+  # =============================================
+  # Spring Boot Backend (Java 21)
+  # =============================================
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    ports:
+      - "8686:8686"
+    environment:
+      MONGO_URI: ${MONGO_URI:-mongodb://mongo:27017/hackathon}
+      REDIS_HOST: ${REDIS_HOST:-redis}
+      OPENAI_API_KEY: ${OPENAI_API_KEY}
+
+  # =============================================
+  # Next.js Frontend
+  # =============================================
+  frontend:
+    build:
+      context: ./frontend-hackathon
+      dockerfile: Dockerfile
+      args:
+        NEXT_PUBLIC_API_BASE_URL: ${NEXT_PUBLIC_API_BASE_URL:-https://backend.fproject.site}
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      NEXT_PUBLIC_API_BASE_URL: ${NEXT_PUBLIC_API_BASE_URL:-https://backend.fproject.site}

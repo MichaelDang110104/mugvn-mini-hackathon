@@ -1,12 +1,12 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { fetchRecommendations } from '@/lib/api/client'
-import { useSessionId } from '@/hooks/useSessionId'
+import { fetchHomeFeed } from '@/lib/api/client'
 
 interface Section {
   id: string
   title: string
+  type: string
   movies: any[]
   reasonChip?: string
   loading?: boolean
@@ -17,63 +17,48 @@ interface HomeDataState {
   sections: Section[]
   loading: boolean
   error: string | null
-  recommendationMode: 'semantic' | 'fallback_text' | 'personalized' | 'cold_start'
   refetch: () => Promise<void>
 }
 
 export function useHomeData(): HomeDataState {
-  const { sessionId, sessionReady } = useSessionId()
   const [sections, setSections] = useState<Section[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const [recommendationMode, setRecommendationMode] = useState<HomeDataState['recommendationMode']>('personalized')
 
   const fetchData = async () => {
-    if (!sessionReady || !sessionId) {
-      return
-    }
-
     try {
       setLoading(true)
       setError(null)
 
-      const response = await fetchRecommendations({
-        sessionId,
-        limit: 50,
-      })
+      const response = await fetchHomeFeed()
 
       setSections(
         response.sections.map(section => ({
-          id: section.id,
+          id: section.sectionId,
           title: section.title,
+          type: section.type,
           movies: section.movies,
-          reasonChip: section.reasonChip,
           loading: false,
           error: null,
         }))
       )
-
-      setRecommendationMode(response.recommendationMode)
     } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'Failed to fetch recommendations'
+      const errorMessage = err instanceof Error ? err.message : 'Failed to fetch home feed'
       setError(errorMessage)
-      console.error('[v0] Home data fetch error:', err)
+      console.error('[v0] Home feed fetch error:', err)
     } finally {
       setLoading(false)
     }
   }
 
   useEffect(() => {
-    if (sessionReady) {
-      fetchData()
-    }
-  }, [sessionId, sessionReady])
+    fetchData()
+  }, [])
 
   return {
     sections,
     loading,
     error,
-    recommendationMode,
     refetch: fetchData,
   }
 }

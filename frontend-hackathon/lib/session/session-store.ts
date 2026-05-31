@@ -5,6 +5,8 @@
  */
 
 const SESSION_ID_KEY = 'movie_app_session_id'
+const AUTH_TOKEN_KEY = 'movie_app_auth_token'
+const ONBOARDING_COMPLETE_KEY = 'movie_app_onboarding_complete'
 
 /**
  * Generate a unique session ID using crypto.randomUUID()
@@ -71,8 +73,56 @@ export function clearSessionId(): void {
 
   try {
     localStorage.removeItem(SESSION_ID_KEY)
+    localStorage.removeItem(ONBOARDING_COMPLETE_KEY)
   } catch (error) {
     // localStorage not available
     console.warn('[v0] Failed to clear session ID from localStorage:', error)
+  }
+}
+
+export function getAuthToken(): string | null {
+  if (typeof window === 'undefined') return null
+  try {
+    return localStorage.getItem(AUTH_TOKEN_KEY)
+  } catch {
+    return null
+  }
+}
+
+export function setAuthToken(token: string): void {
+  if (typeof window === 'undefined') return
+  try {
+    localStorage.setItem(AUTH_TOKEN_KEY, token)
+  } catch (error) {
+    console.warn('[v0] Failed to set auth token:', error)
+  }
+}
+
+export function getOnboardingComplete(): boolean {
+  if (typeof window === 'undefined') return false
+  try {
+    return localStorage.getItem(ONBOARDING_COMPLETE_KEY) === 'true'
+  } catch {
+    return false
+  }
+}
+
+
+export function setOnboardingComplete(value: boolean): void {
+  if (typeof window === 'undefined') return
+  try {
+    localStorage.setItem(ONBOARDING_COMPLETE_KEY, value ? 'true' : 'false')
+  } catch (error) {
+    console.warn('[v0] Failed to set onboarding completion:', error)
+  }
+}
+
+export function clearAuthToken(): void {
+  if (typeof window === 'undefined') return
+  try {
+    localStorage.removeItem(AUTH_TOKEN_KEY)
+    localStorage.removeItem(ONBOARDING_COMPLETE_KEY)
+  } catch (error) {
+    console.warn('[v0] Failed to clear auth token:', error)
   }
 }

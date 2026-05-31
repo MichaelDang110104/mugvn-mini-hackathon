@@ -1,0 +1,140 @@
+name: Build & Deploy Hackathon App
+
+on:
+  push:
+    branches:
+      - pipeline
+
+jobs:
+  # ──────────────────────────────────────────────
+  # Build Backend Docker Image (parallel)
+  # ──────────────────────────────────────────────
+  build-backend:
+    name: Build Backend
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKER_HUB_USERNAME }}
+          password: ${{ secrets.DOCKER_HUB_ACCESS_TOKEN }}
+
+      - name: Build and Push Backend Image
+        uses: docker/build-push-action@v6
+        with:
+          context: ./backend
+          push: true
+          cache-from: type=gha,scope=backend
+          cache-to: type=gha,mode=max,scope=backend
+          tags: |
+            ${{ secrets.DOCKER_HUB_USERNAME }}/hackathon-backend:latest
+
+  # ──────────────────────────────────────────────
+  # Build Frontend Docker Image (parallel)
+  # ──────────────────────────────────────────────
+  build-frontend:
+    name: Build Frontend
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKER_HUB_USERNAME }}
+          password: ${{ secrets.DOCKER_HUB_ACCESS_TOKEN }}
+
+      - name: Build and Push Frontend Image
+        uses: docker/build-push-action@v6
+        with:
+          context: ./frontend-hackathon
+          push: true
+          build-args: |
+            NEXT_PUBLIC_API_BASE_URL=${{ secrets.NEXT_PUBLIC_API_BASE_URL }}
+          cache-from: type=gha,scope=frontend
+          cache-to: type=gha,mode=max,scope=frontend
+          tags: |
+            ${{ secrets.DOCKER_HUB_USERNAME }}/hackathon-frontend:latest
+
+  # ──────────────────────────────────────────────
+  # Deploy to server
+  # ──────────────────────────────────────────────
+  deploy:
+    name: Deploy
+    needs: [build-backend, build-frontend]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Deploy to Server
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.SERVER_HOST }}
+          username: ${{ secrets.SERVER_USERNAME }}
+          password: ${{ secrets.SERVER_PASSWORD }}
+          # key: ${{ secrets.SERVER_SSH_KEY }}
+          port: 22
+          script: |
+            DOCKER_USER="${{ secrets.DOCKER_HUB_USERNAME }}"
+            TAG="latest"
+
+            # ── Create shared network (if not exists) ──
+            docker network create hackathon-net 2>/dev/null || true
+
+            # ── Debug Secrets (Masked by GitHub, so we just check if they are set) ──
+            echo "--- Debug Backend Environment Variables ---"
+            echo "MONGO_URI: $( [ -z "${{ secrets.MONGO_URI }}" ] && echo "EMPTY" || echo "SET" )"
+            echo "REDIS_HOST: $( [ -z "${{ secrets.REDIS_HOST }}" ] && echo "EMPTY" || echo "SET" )"
+            echo "OPENAI_API_KEY: $( [ -z "${{ secrets.OPENAI_API_KEY }}" ] && echo "EMPTY" || echo "SET" )"
+            echo "KAFKA_BOOTSTRAP_SERVERS: $( [ -z "${{ secrets.KAFKA_BOOTSTRAP_SERVERS }}" ] && echo "EMPTY" || echo "SET" )"
+            echo "KAFKA_USER_EVENT_PROCESSOR_GROUP: $( [ -z "${{ secrets.KAFKA_USER_EVENT_PROCESSOR_GROUP }}" ] && echo "EMPTY" || echo "SET" )"
+            echo "KAFKA_USER_EVENTS_TOPIC: $( [ -z "${{ secrets.KAFKA_USER_EVENTS_TOPIC }}" ] && echo "EMPTY" || echo "SET" )"
+            echo "STARTER_QUERY_LLM_ENABLED: $( [ -z "${{ secrets.STARTER_QUERY_LLM_ENABLED }}" ] && echo "EMPTY" || echo "SET" )"
+            echo "-----------------------------------------------"
+
+            # ── Deploy Backend ──
+            docker stop hackathon-backend || true
+            docker rm hackathon-backend || true
+            docker pull ${DOCKER_USER}/hackathon-backend:${TAG}
+            docker run -d \
+              --name hackathon-backend \
+              --restart unless-stopped \
+              --network hackathon-net \
+              -p 8686:8686 \
+              -e MONGO_URI="${{ secrets.MONGO_URI }}" \
+              -e REDIS_HOST="${{ secrets.REDIS_HOST }}" \
+              -e OPENAI_API_KEY="${{ secrets.OPENAI_API_KEY }}" \
+              -e KAFKA_BOOTSTRAP_SERVERS="${{ secrets.KAFKA_BOOTSTRAP_SERVERS }}" \
+              -e KAFKA_USER_EVENT_PROCESSOR_GROUP="${{ secrets.KAFKA_USER_EVENT_PROCESSOR_GROUP }}" \
+              -e KAFKA_USER_EVENTS_TOPIC="${{ secrets.KAFKA_USER_EVENTS_TOPIC }}" \
+              -e KAFKA_USER_EVENT_CONSUMER_CONCURRENCY="${{ secrets.KAFKA_USER_EVENT_CONSUMER_CONCURRENCY }}" \
+              -e STARTER_QUERY_LLM_ENABLED="${{ secrets.STARTER_QUERY_LLM_ENABLED }}" \
+              -e STARTER_QUERY_LLM_MODEL="${{ secrets.STARTER_QUERY_LLM_MODEL }}" \
+              -e STARTER_QUERY_LLM_TEMPERATURE="${{ secrets.STARTER_QUERY_LLM_TEMPERATURE }}" \
+              ${DOCKER_USER}/hackathon-backend:${TAG}
+            
+            # Wait a few seconds to let the backend start, then fetch logs to see why it might be failing
+            sleep 10
+            echo "--- Backend Docker Logs ---"
+            docker logs hackathon-backend --tail 100
+
+            # ── Deploy Frontend ──
+            docker stop hackathon-frontend || true
+            docker rm hackathon-frontend || true
+            docker pull ${DOCKER_USER}/hackathon-frontend:${TAG}
+            docker run -d \
+              --name hackathon-frontend \
+              --restart unless-stopped \
+              --network hackathon-net \
+              -p 3000:3000 \
+              -e NEXT_PUBLIC_API_BASE_URL="${{ secrets.NEXT_PUBLIC_API_BASE_URL }}" \
+              ${DOCKER_USER}/hackathon-frontend:${TAG}
+
