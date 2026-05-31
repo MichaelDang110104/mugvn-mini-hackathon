@@ -1,0 +1,4 @@
+aws_region                     = "ap-southeast-1"
+domain_name                    = "app.example.com"
+route53_zone_id                = "Z0000000000000000000"
+cloudfront_origin_header_secret = "replace-me"

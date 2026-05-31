@@ -1,0 +1,12 @@
+# Terraform local artifacts
+.terraform/
+*.tfstate
+*.tfstate.*
+crash.log
+crash.*.log
+*.tfplan
+.terraform.lock.hcl
+
+# TF vars files often contain secrets
+*.tfvars
+*.tfvars.json
